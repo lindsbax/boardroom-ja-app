@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sponsorship 101 — The Boardroom JA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Cormorant+Garamond:ital,wght@1,400;1,500;1,600&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#0B1B2B;
+    --emerald:#114B3B;
+    --wine:#7A1E3D;
+    --gold:#C9A227;
+    --ivory:#F7F2E9;
+    --navy-soft: rgba(11,27,43,0.06);
+    --gold-soft: rgba(201,162,39,0.16);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--ivory);
+    color:var(--navy);
+    font-family:'Jost',sans-serif;
+    font-weight:300;
+    line-height:1.6;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:0 24px 96px;}
+  a{color:inherit;}
+
+  /* ---------- HEADER ---------- */
+  header{
+    background:var(--navy);
+    color:var(--ivory);
+    padding:56px 24px 72px;
+    position:relative;
+    overflow:hidden;
+  }
+  header .wrap{padding-bottom:0;}
+  .eyebrow{
+    font-family:'Jost',sans-serif;
+    font-size:12px;
+    letter-spacing:0.28em;
+    text-transform:uppercase;
+    color:var(--gold);
+    margin-bottom:14px;
+  }
+  h1{
+    font-family:'Cinzel',serif;
+    font-weight:500;
+    font-size:clamp(32px,5vw,52px);
+    letter-spacing:0.01em;
+    margin:0 0 8px;
+    line-height:1.15;
+  }
+  .tagline{
+    font-family:'Cormorant Garamond',serif;
+    font-style:italic;
+    font-size:22px;
+    color:var(--gold);
+    margin:0 0 32px;
+  }
+  .table-rule{
+    position:relative;
+    height:1px;
+    background:rgba(247,242,233,0.25);
+    margin:36px 0 0;
+  }
+  .table-rule::before,.table-rule::after{
+    content:"";
+    position:absolute;
+    top:0;
+    width:1px;
+    height:34px;
+    background:var(--gold);
+    transform-origin:top;
+  }
+  .table-rule::before{left:18%;transform:rotate(12deg);}
+  .table-rule::after{right:18%;transform:rotate(-12deg);}
+
+  .credibility{
+    font-size:15.5px;
+    color:rgba(247,242,233,0.82);
+    max-width:640px;
+    margin-top:24px;
+  }
+  .credibility .edit-note{
+    display:block;
+    margin-top:14px;
+    font-size:12.5px;
+    color:var(--gold);
+    letter-spacing:0.02em;
+  }
+
+  /* ---------- SECTIONS ---------- */
+  section{padding:56px 0;border-bottom:1px solid rgba(11,27,43,0.09);}
+  section:last-of-type{border-bottom:none;}
+  .section-label{
+    font-family:'Jost',sans-serif;
+    font-size:12px;
+    letter-spacing:0.24em;
+    text-transform:uppercase;
+    color:var(--wine);
+    margin-bottom:10px;
+  }
+  h2{
+    font-family:'Cinzel',serif;
+    font-weight:500;
+    font-size:28px;
+    margin:0 0 20px;
+  }
+  h3{
+    font-family:'Jost',sans-serif;
+    font-weight:500;
+    font-size:17px;
+    margin:0 0 8px;
+    color:var(--navy);
+  }
+  p{margin:0 0 14px;font-size:15.5px;}
+
+  /* ---------- DATE INPUT ---------- */
+  .date-panel{
+    background:#fff;
+    border:1px solid var(--navy-soft);
+    border-radius:2px;
+    padding:28px;
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:20px;
+  }
+  .date-panel label{
+    font-size:13px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--wine);
+    display:block;
+    margin-bottom:8px;
+  }
+  input[type="date"]{
+    font-family:'Jost',sans-serif;
+    font-size:16px;
+    padding:11px 14px;
+    border:1px solid rgba(11,27,43,0.25);
+    border-radius:2px;
+    background:var(--ivory);
+    color:var(--navy);
+    min-width:200px;
+  }
+  input[type="date"]:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+  .today-readout{
+    font-family:'Cormorant Garamond',serif;
+    font-style:italic;
+    font-size:19px;
+    color:var(--emerald);
+  }
+
+  /* ---------- TIMELINE ---------- */
+  .timeline{margin-top:44px;}
+  .timeline-spine{
+    position:relative;
+    height:2px;
+    background:rgba(11,27,43,0.14);
+    margin:0 6px 0;
+  }
+  .timeline-fill{
+    position:absolute;top:0;left:0;height:2px;
+    background:var(--gold);
+    width:0%;
+    transition:width .5s ease;
+  }
+  .timeline-stages{
+    display:flex;
+    justify-content:space-between;
+    margin-top:-1px;
+  }
+  .stage{
+    position:relative;
+    flex:1;
+    text-align:center;
+    cursor:pointer;
+    padding-top:22px;
+    border:none;
+    background:none;
+    font-family:'Jost',sans-serif;
+  }
+  .stage .tick{
+    position:absolute;
+    top:0;left:50%;
+    width:2px;height:16px;
+    background:rgba(11,27,43,0.3);
+    transform:translateX(-50%);
+  }
+  .stage.done .tick{background:var(--emerald);}
+  .stage.current .tick{background:var(--gold);width:3px;height:20px;top:-2px;}
+  .stage.current::after{
+    content:"";
+    position:absolute;
+    top:-6px;left:50%;
+    width:10px;height:10px;
+    background:var(--gold);
+    border-radius:50%;
+    transform:translateX(-50%);
+    box-shadow:0 0 0 4px var(--gold-soft);
+  }
+  .stage .wk{
+    display:block;
+    font-size:11px;
+    color:rgba(11,27,43,0.45);
+    margin-bottom:2px;
+  }
+  .stage .lbl{
+    display:block;
+    font-size:12px;
+    line-height:1.3;
+    color:var(--navy);
+    max-width:92px;
+    margin:0 auto;
+  }
+  .stage.done .lbl{color:var(--emerald);}
+  .stage.current .lbl{color:var(--wine);font-weight:500;}
+  .stage:focus-visible{outline:2px solid var(--gold);outline-offset:4px;}
+
+  .now-card{
+    margin-top:48px;
+    background:var(--gold-soft);
+    border-left:3px solid var(--gold);
+    padding:22px 26px;
+  }
+  .now-card .section-label{margin-bottom:6px;}
+  .now-card h3{font-size:19px;margin-bottom:8px;}
+
+  /* ---------- ACCORDION (Readiness detail) ---------- */
+  .accordion-item{border-top:1px solid var(--navy-soft);}
+  .accordion-item:last-child{border-bottom:1px solid var(--navy-soft);}
+  .accordion-head{
+    width:100%;
+    background:none;border:none;
+    text-align:left;
+    padding:18px 4px;
+    display:flex;justify-content:space-between;align-items:center;
+    cursor:pointer;
+    font-family:'Jost',sans-serif;
+    color:var(--navy);
+  }
+  .accordion-head h3{margin:0;}
+  .accordion-head .plus{font-size:20px;color:var(--wine);transition:transform .2s;}
+  .accordion-item.open .plus{transform:rotate(45deg);}
+  .accordion-body{
+    max-height:0;
+    overflow:hidden;
+    transition:max-height .3s ease;
+  }
+  .accordion-item.open .accordion-body{max-height:600px;}
+  .accordion-body-inner{padding:0 4px 22px;}
+  .accordion-body-inner ul{margin:0;padding-left:20px;}
+  .accordion-body-inner li{margin-bottom:6px;font-size:15px;}
+  .note{
+    font-size:13.5px;
+    font-style:italic;
+    font-family:'Cormorant Garamond',serif;
+    color:var(--wine);
+    margin-top:10px;
+  }
+
+  /* ---------- CATEGORY TABLE ---------- */
+  .cat-grid{display:grid;grid-template-columns:1fr;gap:14px;margin-top:20px;}
+  .cat-card{
+    border:1px solid var(--navy-soft);
+    padding:18px 20px;
+    background:#fff;
+  }
+  .cat-card .cat-num{
+    font-family:'Cinzel',serif;
+    color:var(--gold);
+    font-size:13px;
+    letter-spacing:0.1em;
+    margin-bottom:6px;
+    display:block;
+  }
+
+  /* ---------- CAPTURE FORM ---------- */
+  .form-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:18px 20px;
+    margin:28px 0 22px;
+  }
+  .form-field{display:flex;flex-direction:column;}
+  .form-field.full{grid-column:1 / -1;}
+  .form-field label{
+    font-size:12.5px;
+    letter-spacing:0.04em;
+    color:var(--wine);
+    margin-bottom:6px;
+  }
+  .form-field input,.form-field textarea{
+    font-family:'Jost',sans-serif;
+    font-size:14.5px;
+    padding:10px 12px;
+    border:1px solid rgba(11,27,43,0.22);
+    border-radius:2px;
+    background:#fff;
+    color:var(--navy);
+    resize:vertical;
+  }
+  .form-field input:focus-visible,.form-field textarea:focus-visible{
+    outline:2px solid var(--gold);outline-offset:1px;
+  }
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  @media(max-width:640px){
+    .form-grid{grid-template-columns:1fr;}
+    .pair{grid-template-columns:1fr;}
+  }
+  .save-btn{background:var(--emerald);color:var(--ivory);}
+  .save-btn:hover{background:#186a52;}
+  .save-status{
+    margin-top:12px;
+    font-size:13.5px;
+    font-style:italic;
+    font-family:'Cormorant Garamond',serif;
+    color:var(--emerald);
+    min-height:18px;
+  }
+  .save-status.error{color:var(--wine);}
+
+  /* ---------- UPSELLS ---------- */
+  .upsells{background:var(--navy);color:var(--ivory);padding:64px 0 72px;}
+  .upsells .wrap{padding-bottom:0;}
+  .upsells h2{color:var(--ivory);}
+  .upsells .section-label{color:var(--gold);}
+  .upsells .intro{color:rgba(247,242,233,0.75);max-width:560px;margin-bottom:36px;}
+  .upsell-grid{display:grid;grid-template-columns:1fr;gap:20px;}
+  @media(min-width:720px){.upsell-grid{grid-template-columns:repeat(3,1fr);}}
+  .upsell-card{
+    background:rgba(247,242,233,0.04);
+    border:1px solid rgba(201,162,39,0.35);
+    padding:26px 22px;
+    display:flex;
+    flex-direction:column;
+  }
+  .upsell-card .price{
+    font-family:'Cinzel',serif;
+    font-size:26px;
+    color:var(--gold);
+    margin-bottom:4px;
+  }
+  .upsell-card .price span{font-size:13px;font-family:'Jost',sans-serif;color:rgba(247,242,233,0.6);}
+  .upsell-card h3{color:var(--ivory);font-size:16px;margin:8px 0 10px;}
+  .upsell-card p{font-size:13.5px;color:rgba(247,242,233,0.75);flex-grow:1;}
+  .cta-btn{
+    display:inline-block;
+    margin-top:16px;
+    padding:12px 20px;
+    background:var(--gold);
+    color:var(--navy);
+    text-align:center;
+    text-decoration:none;
+    font-size:13px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    font-weight:500;
+    border:none;
+    cursor:pointer;
+    transition:background .2s;
+  }
+  .cta-btn:hover{background:#dfb93a;}
+  .cta-btn:focus-visible{outline:2px solid var(--ivory);outline-offset:3px;}
+
+  @media(max-width:640px){
+    .timeline-stages{flex-wrap:nowrap;overflow-x:auto;gap:0;padding-bottom:6px;}
+    .stage{min-width:78px;}
+  }
+  @media(prefers-reduced-motion:reduce){
+    *{transition:none !important;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="eyebrow">The Boardroom JA · Member Resource</div>
+    <h1>Sponsorship 101</h1>
+    <p class="tagline">Build the table. Don't wait for a seat.</p>
+    <p class="credibility">
+      Put together from over a decade securing and managing sponsorship for major international events —
+      including a senior commercial leadership role at a London Stock Exchange-listed, FTSE 100 media
+      and exhibitions group with 16,000 staff across 53 countries, where sponsorship revenue under my
+      remit exceeded <strong>£60m annually</strong>. Direct sponsor relationships have included
+      <strong>Microsoft, Google, Siemens, Coca-Cola, BMW, AB InBev, Pepsi, Gatorade</strong> and
+      <strong>Red Bull</strong>, alongside partnership work with the <strong>UN Environment Programme
+      (UNEP)</strong>, <strong>UNEP Finance Initiative</strong> and <strong>Philips Lighting</strong>.
+      This is the exact process used to land those partnerships — adapted for your event.
+    </p>
+    <div class="table-rule"></div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section id="planner">
+    <div class="section-label">Step 0</div>
+    <h2>When is your event?</h2>
+    <p>Enter your event date. The timeline below will show you exactly what to do, and when — working backwards from today.</p>
+    <div class="date-panel">
+      <div>
+        <label for="eventDate">Event date</label>
+        <input type="date" id="eventDate">
+      </div>
+      <div class="today-readout" id="readout"></div>
+    </div>
+
+    <div class="timeline">
+      <div class="timeline-spine"><div class="timeline-fill" id="timelineFill"></div></div>
+      <div class="timeline-stages" id="timelineStages"></div>
+    </div>
+
+    <div class="now-card" id="nowCard">
+      <div class="section-label">Where you are now</div>
+      <h3 id="nowTitle">Enter your event date above</h3>
+      <p id="nowDesc" style="margin:0;">Your personalised action plan will appear here.</p>
+    </div>
+  </section>
+
+  <section id="readiness">
+    <div class="section-label">Step 1 · 16 weeks out</div>
+    <h2>The Readiness Check</h2>
+    <p>Before you approach a single sponsor, get brutally clear on these five things. You don't need every detail listed below — but the more specific you are, the easier the next steps become.</p>
+
+    <div class="accordion" id="accordion"></div>
+  </section>
+
+  <section id="target">
+    <div class="section-label">Step 2 · 14 weeks out</div>
+    <h2>Identify Your Target Market</h2>
+    <p>Who wants to meet or sell to the people in your room — and why? Most events support two or three distinct sponsorship categories. Name each one and be specific about the "why."</p>
+    <div class="cat-grid">
+      <div class="cat-card"><span class="cat-num">Category 01</span><strong>e.g. Financial services</strong> — reason: your audience are decision-makers with disposable income / business banking needs.</div>
+      <div class="cat-card"><span class="cat-num">Category 02</span><strong>e.g. Lifestyle / hospitality brand</strong> — reason: your audience matches their target demographic and they want brand visibility with this exact room.</div>
+      <div class="cat-card"><span class="cat-num">Category 03</span><strong>e.g. Professional services</strong> — reason: they're selling directly to attendees or want association with the topic/mission.</div>
+    </div>
+    <p class="note">Replace with your event's actual categories — this is the single biggest driver of who says yes.</p>
+  </section>
+
+  <section id="decision">
+    <div class="section-label">Step 3 · 13 weeks out</div>
+    <h2>Identify the Decision Maker</h2>
+    <p>Typically the Marketing Manager, Brand Manager, or Head of Partnerships/CSR — not generic info@ inboxes. Check LinkedIn for title match, and always check your own network first: a warm intro outperforms a cold one every time.</p>
+  </section>
+
+  <section id="outreach">
+    <div class="section-label">Step 4 · 12 weeks out (3 months)</div>
+    <h2>Send Your Proposal</h2>
+    <p>Reach out directly by email, text, or LinkedIn with your sponsorship proposal attached. Keep it short — the proposal does the selling, your message just gets it opened.</p>
+  </section>
+
+  <section id="capture">
+    <div class="section-label">Save your answers</div>
+    <h2>Your Sponsorship Snapshot</h2>
+    <p>Fill this in as you work through the steps above. Saving is optional and free — but if you order any paid asset below, these answers are sent through automatically so you don't have to repeat yourself.</p>
+
+    <div class="form-grid">
+      <div class="form-field">
+        <label for="f_name">Your name</label>
+        <input type="text" id="f_name" placeholder="Full name">
+      </div>
+      <div class="form-field">
+        <label for="f_email">Your email</label>
+        <input type="email" id="f_email" placeholder="you@example.com">
+      </div>
+      <div class="form-field">
+        <label for="f_event">Event name</label>
+        <input type="text" id="f_event" placeholder="e.g. Women in Tech Summit">
+      </div>
+      <div class="form-field">
+        <label for="f_audience">Target audience (Who)</label>
+        <textarea id="f_audience" rows="2" placeholder="Age, profession, income, interests..."></textarea>
+      </div>
+
+      <div class="form-field full">
+        <label>Sponsorship category 1 — company/industry & why</label>
+        <div class="pair">
+          <input type="text" id="f_cat1_name" placeholder="e.g. Financial services brand">
+          <input type="text" id="f_cat1_why" placeholder="Why would they want this room?">
+        </div>
+      </div>
+      <div class="form-field full">
+        <label>Sponsorship category 2 — company/industry & why</label>
+        <div class="pair">
+          <input type="text" id="f_cat2_name" placeholder="e.g. Lifestyle brand">
+          <input type="text" id="f_cat2_why" placeholder="Why would they want this room?">
+        </div>
+      </div>
+      <div class="form-field full">
+        <label>Sponsorship category 3 — company/industry & why</label>
+        <div class="pair">
+          <input type="text" id="f_cat3_name" placeholder="e.g. Professional services">
+          <input type="text" id="f_cat3_why" placeholder="Why would they want this room?">
+        </div>
+      </div>
+
+      <div class="form-field full">
+        <label for="f_decision">Decision makers identified (name, company, role)</label>
+        <textarea id="f_decision" rows="2" placeholder="Optional — add as you find them"></textarea>
+      </div>
+    </div>
+
+    <button class="cta-btn save-btn" id="saveBtn" type="button">Save my answers</button>
+    <p class="save-status" id="saveStatus" aria-live="polite"></p>
+  </section>
+
+</div>
+
+<div class="upsells">
+  <div class="wrap">
+    <div class="section-label">Ready to move faster?</div>
+    <h2>Done-For-You Sponsorship Tools</h2>
+    <p class="intro">You've got the process. These are the assets members use to skip the guesswork and get to "yes" faster. If you've filled in your Sponsorship Snapshot above, your answers are included automatically — no need to repeat yourself.</p>
+    <div class="upsell-grid">
+
+      <div class="upsell-card">
+        <div class="price">$30 <span>USD</span></div>
+        <h3>Outreach Messages & Follow-Up Sequence</h3>
+        <p>For up to 3 sponsorship categories, a full set of tailored email, LinkedIn, and WhatsApp outreach messages, plus a matching follow-up set for each — 18 messages total. Ready to copy, personalise, and send.</p>
+        <a class="cta-btn" id="cta-outreach" data-upsell="Outreach Messages & Follow-Up Sequence ($30)" data-subject="Sponsorship Outreach Messages - $30" href="mailto:lindsay@baxteradvisory.co.uk" target="_blank" rel="noopener">Order for $30 →</a>
+        <p class="note" style="color:rgba(247,242,233,0.55);margin-top:8px;">Your Snapshot answers are attached automatically.</p>
+      </div>
+
+      <div class="upsell-card">
+        <div class="price">$20 <span>USD</span></div>
+        <h3>Sponsor Contact List</h3>
+        <p>A curated list of 20+ names and email addresses matching the sponsorship categories you identified in Step 2 — so you spend your time pitching, not prospecting.</p>
+        <a class="cta-btn" id="cta-list" data-upsell="Sponsor Contact List ($20)" data-subject="Sponsor Contact List - $20" href="mailto:lindsay@baxteradvisory.co.uk" target="_blank" rel="noopener">Order for $20 →</a>
+        <p class="note" style="color:rgba(247,242,233,0.55);margin-top:8px;">Your Snapshot answers are attached automatically.</p>
+      </div>
+
+      <div class="upsell-card">
+        <div class="price">$75 <span>USD</span></div>
+        <h3>Sponsorship Deck, Written For You</h3>
+        <p>A full sponsorship proposal deck with packages tailored to your event and target market — designed and written, ready to send.</p>
+        <a class="cta-btn" id="cta-deck" data-upsell="Sponsorship Deck ($75)" data-subject="Sponsorship Deck - $75" href="mailto:lindsay@baxteradvisory.co.uk" target="_blank" rel="noopener">Order for $75 →</a>
+        <p class="note" style="color:rgba(247,242,233,0.55);margin-top:8px;">Your Snapshot answers are attached automatically.</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const stages = [
+  {weeks:16, key:"readiness", label:"Readiness check", desc:"Nail down your Who / What / When / Where / Why before contacting anyone. This is the foundation every sponsor conversation stands on."},
+  {weeks:14, key:"target", label:"Target market", desc:"Define 2–3 sponsorship categories and the specific reason each one would want access to your room."},
+  {weeks:13, key:"decision", label:"Decision maker", desc:"Identify the named person — usually a Marketing or Partnerships Manager — at each target company. Check your network for a warm intro first."},
+  {weeks:12, key:"outreach", label:"Send proposal", desc:"Send your proposal by email, text, or LinkedIn. Keep the message short — let the proposal do the selling."},
+  {weeks:8,  key:"follow1", label:"Follow-up #1", desc:"No reply yet? This is the week to send a polite, brief follow-up. Don't let a good opportunity go cold."},
+  {weeks:6,  key:"follow2", label:"Follow-up #2", desc:"Final follow-up push. If there's genuine interest, this is when it usually surfaces — be ready to move to confirmation."},
+  {weeks:4,  key:"confirm", label:"Confirm & invoice", desc:"Lock in confirmed sponsors: send contracts/invoices and collect any assets (logos, banners) you need from them."},
+  {weeks:1,  key:"final", label:"Final logistics", desc:"Confirm on-site logistics with each sponsor — signage, setup time, who's attending — so event day runs without surprises."}
+];
+
+const dateInput = document.getElementById('eventDate');
+const readout = document.getElementById('readout');
+const stagesEl = document.getElementById('timelineStages');
+const fillEl = document.getElementById('timelineFill');
+const nowTitle = document.getElementById('nowTitle');
+const nowDesc = document.getElementById('nowDesc');
+
+function weeksBetween(a,b){ return (b - a) / (1000*60*60*24*7); }
+
+function render(){
+  const val = dateInput.value;
+  stagesEl.innerHTML = '';
+  if(!val){
+    readout.textContent = '';
+    fillEl.style.width = '0%';
+    nowTitle.textContent = 'Enter your event date above';
+    nowDesc.textContent = 'Your personalised action plan will appear here.';
+    stages.forEach(s=>{
+      const btn = document.createElement('button');
+      btn.className = 'stage';
+      btn.innerHTML = `<span class="tick"></span><span class="wk">${s.weeks}wk</span><span class="lbl">${s.label}</span>`;
+      stagesEl.appendChild(btn);
+    });
+    return;
+  }
+
+  const event = new Date(val + 'T00:00:00');
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const weeksOut = weeksBetween(today, event);
+
+  readout.textContent = weeksOut >= 0
+    ? `${Math.round(weeksOut)} weeks to go`
+    : `Event date has passed`;
+
+  const maxW = 16;
+  const pct = Math.min(100, Math.max(0, ((maxW - weeksOut) / maxW) * 100));
+  fillEl.style.width = pct + '%';
+
+  let current = stages[0];
+  stages.forEach(s=>{ if(weeksOut <= s.weeks) current = s; });
+  // find the stage that is currently "active" (closest upcoming/at)
+  let activeIndex = 0;
+  for(let i=0;i<stages.length;i++){
+    if(weeksOut <= stages[i].weeks) activeIndex = i;
+  }
+  if(weeksOut > stages[0].weeks) activeIndex = -1; // more than 16 weeks out — not started
+
+  stages.forEach((s,i)=>{
+    const btn = document.createElement('button');
+    let cls = 'stage';
+    if(activeIndex === -1){
+      // too early
+    } else if(i < activeIndex){
+      cls += ' done';
+    } else if(i === activeIndex){
+      cls += ' current';
+    }
+    btn.className = cls;
+    btn.innerHTML = `<span class="tick"></span><span class="wk">${s.weeks}wk</span><span class="lbl">${s.label}</span>`;
+    btn.addEventListener('click', ()=> setNow(s));
+    stagesEl.appendChild(btn);
+  });
+
+  if(activeIndex === -1){
+    nowTitle.textContent = `You're ${Math.round(weeksOut)} weeks out — plenty of runway`;
+    nowDesc.textContent = `Sponsorship prep formally kicks off at 16 weeks out. Use this time to firm up your event concept — then come back.`;
+  } else if(weeksOut < 0){
+    nowTitle.textContent = `Event day has passed`;
+    nowDesc.textContent = `Reflect on what worked and revisit this planner for your next event.`;
+  } else {
+    setNow(stages[activeIndex]);
+  }
+}
+
+function setNow(s){
+  nowTitle.textContent = `${s.weeks} weeks out — ${s.label}`;
+  nowDesc.textContent = s.desc;
+}
+
+dateInput.addEventListener('change', render);
+render();
+
+// ---------- Accordion (Readiness detail) ----------
+const readinessItems = [
+  {
+    title: "WHO — your target attendee",
+    body: `<p>Get as specific as you can. You don't need every field — but the more detail, the sharper your sponsor pitch.</p>
+    <ul>
+      <li>Age range</li>
+      <li>Gender</li>
+      <li>Profession / industry</li>
+      <li>Income bracket</li>
+      <li>Interests & lifestyle</li>
+      <li>Skills / seniority level (where relevant)</li>
+    </ul>`
+  },
+  {
+    title: "WHAT — the event & its objective",
+    body: `<p>Is this topic-based, or built around a specific outcome? A hackathon exists to produce something concrete; a panel discussion exists to spark thinking. Neither is better — but sponsors need to know which one they're funding.</p>
+    <p class="note">Write one sentence: "This event exists to ___."</p>`
+  },
+  {
+    title: "WHEN — date and time",
+    body: `<p>Lock this in early — sponsor budgets and calendars fill up fast, especially 3+ months out.</p>`
+  },
+  {
+    title: "WHERE — the venue",
+    body: `<p>Confirm the venue before outreach. Sponsors will ask, and a firm answer builds credibility.</p>`
+  },
+  {
+    title: "WHY — the case for this room, this topic, now",
+    body: `<p>Why you, why this audience, why this topic, why now? This is the paragraph that turns a generic ask into a compelling one.</p>`
+  }
+];
+
+const accEl = document.getElementById('accordion');
+readinessItems.forEach((item, i)=>{
+  const div = document.createElement('div');
+  div.className = 'accordion-item' + (i===0 ? ' open' : '');
+  div.innerHTML = `
+    <button class="accordion-head" aria-expanded="${i===0}">
+      <h3>${item.title}</h3>
+      <span class="plus">+</span>
+    </button>
+    <div class="accordion-body"><div class="accordion-body-inner">${item.body}</div></div>
+  `;
+  const head = div.querySelector('.accordion-head');
+  head.addEventListener('click', ()=>{
+    const isOpen = div.classList.toggle('open');
+    head.setAttribute('aria-expanded', isOpen);
+  });
+  accEl.appendChild(div);
+});
+
+// ---------- Capture form → Supabase ----------
+const SUPABASE_URL = 'https://czytcrcxfdmdmxqhybfi.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6eXRjcmN4ZmRtZG14cWh5YmZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2OTQxMDcsImV4cCI6MjA5OTI3MDEwN30.1JPSMYugZp6QWXoy3WEYbPNYaZhzV1yAhKLyYMiZOPE';
+
+function getFormData(){
+  return {
+    member_name: document.getElementById('f_name').value.trim(),
+    member_email: document.getElementById('f_email').value.trim(),
+    event_name: document.getElementById('f_event').value.trim(),
+    event_date: dateInput.value || null,
+    audience_notes: document.getElementById('f_audience').value.trim(),
+    category_1_name: document.getElementById('f_cat1_name').value.trim(),
+    category_1_why: document.getElementById('f_cat1_why').value.trim(),
+    category_2_name: document.getElementById('f_cat2_name').value.trim(),
+    category_2_why: document.getElementById('f_cat2_why').value.trim(),
+    category_3_name: document.getElementById('f_cat3_name').value.trim(),
+    category_3_why: document.getElementById('f_cat3_why').value.trim(),
+    decision_maker_notes: document.getElementById('f_decision').value.trim()
+  };
+}
+
+async function saveSubmission(requestedUpsell){
+  const payload = Object.assign({}, getFormData(), { requested_upsell: requestedUpsell || null });
+  try{
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/sponsorship_101_submissions`, {
+      method: 'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Prefer':'return=minimal'
+      },
+      body: JSON.stringify(payload)
+    });
+    return res.ok;
+  } catch(err){
+    console.error('Save failed', err);
+    return false;
+  }
+}
+
+const saveBtn = document.getElementById('saveBtn');
+const saveStatus = document.getElementById('saveStatus');
+saveBtn.addEventListener('click', async ()=>{
+  saveBtn.disabled = true;
+  saveStatus.textContent = 'Saving…';
+  saveStatus.className = 'save-status';
+  const ok = await saveSubmission(null);
+  saveBtn.disabled = false;
+  saveStatus.textContent = ok
+    ? 'Saved. Come back anytime — order a paid asset below and these answers go with it.'
+    : 'Could not save right now — you can still order below, your answers will be included in the email.';
+  saveStatus.className = ok ? 'save-status' : 'save-status error';
+});
+
+function buildMailtoBody(){
+  const f = getFormData();
+  const lines = [
+    `Hi Lindsay, I'd like to order this asset.`,
+    ``,
+    `Name: ${f.member_name || '—'}`,
+    `Email: ${f.member_email || '—'}`,
+    `Event: ${f.event_name || '—'}`,
+    `Event date: ${f.event_date || '—'}`,
+    `Target audience: ${f.audience_notes || '—'}`,
+    `Category 1: ${f.category_1_name || '—'} — ${f.category_1_why || '—'}`,
+    `Category 2: ${f.category_2_name || '—'} — ${f.category_2_why || '—'}`,
+    `Category 3: ${f.category_3_name || '—'} — ${f.category_3_why || '—'}`,
+    `Decision makers: ${f.decision_maker_notes || '—'}`
+  ];
+  return lines.join('\n');
+}
+
+document.querySelectorAll('.upsell-card .cta-btn').forEach(btn=>{
+  btn.addEventListener('click', function(e){
+    e.preventDefault();
+    const upsellName = this.dataset.upsell;
+    const subject = this.dataset.subject;
+    // fire-and-forget save, regardless of email client success
+    saveSubmission(upsellName);
+    const body = buildMailtoBody();
+    const mailto = `mailto:lindsay@baxteradvisory.co.uk?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailto;
+  });
+});
+</script>
+
+</body>
+</html>
