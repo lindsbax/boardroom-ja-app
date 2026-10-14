@@ -2,9 +2,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from './lib/supabase';
 import { PRIVACY_POLICY_TEXT, TERMS_OF_USE_TEXT } from './lib/legalText';
 import {
-  Calendar, Users, ShoppingBag, Briefcase, FileText, LogIn, LogOut,
+  Calendar, Users, ShoppingBag, FileText, LogIn, LogOut,
   MapPin, X, Download, ExternalLink, Loader2, Sparkles, Building2,
-  MessageCircle, Send, Search, ShieldCheck, Inbox, Plus
+  MessageCircle, Send, Search, ShieldCheck, Inbox, Plus, Crown
 } from 'lucide-react';
 
 /* ---------------------------------------------------------
@@ -18,21 +18,21 @@ function LegalText({ text }) {
       {lines.map((line, i) => {
         const clean = (s) => s.replace(/\*\*(.+?)\*\*/g, '$1');
         if (line.startsWith('# ')) {
-          return <h2 key={i} className="font-display text-xl text-navy mt-2 mb-2">{clean(line.slice(2))}</h2>;
+          return <h2 key={i} className="font-display text-xl text-ivory mt-2 mb-2">{clean(line.slice(2))}</h2>;
         }
         if (line.startsWith('## ')) {
-          return <h3 key={i} className="font-display text-base text-wine mt-4 mb-1">{clean(line.slice(3))}</h3>;
+          return <h3 key={i} className="font-display text-base text-rose mt-4 mb-1">{clean(line.slice(3))}</h3>;
         }
         if (line.startsWith('### ')) {
-          return <h4 key={i} className="font-sans font-semibold text-sm text-emerald mt-3 mb-1">{clean(line.slice(4))}</h4>;
+          return <h4 key={i} className="font-sans font-semibold text-sm text-mint mt-3 mb-1">{clean(line.slice(4))}</h4>;
         }
         if (line.startsWith('- ')) {
-          return <li key={i} className="text-sm text-navy/80 ml-4 list-disc">{clean(line.slice(2))}</li>;
+          return <li key={i} className="text-sm text-ivory/85 ml-4 list-disc">{clean(line.slice(2))}</li>;
         }
         if (line.trim() === '') return null;
         const isStrongLine = line.startsWith('**') && line.endsWith('**');
         return (
-          <p key={i} className={`text-sm ${isStrongLine ? 'font-semibold text-navy' : 'text-navy/80'}`}>
+          <p key={i} className={`text-sm ${isStrongLine ? 'font-semibold text-ivory' : 'text-ivory/85'}`}>
             {clean(line)}
           </p>
         );
@@ -43,16 +43,16 @@ function LegalText({ text }) {
 
 function LegalModal({ title, text, onClose }) {
   return (
-    <div className="fixed inset-0 z-[60] bg-navy/60 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-ivory max-w-lg w-full max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-navy/10">
-          <h2 className="font-display text-lg text-navy">{title}</h2>
-          <button onClick={onClose} className="text-navy/40 hover:text-navy"><X size={18} /></button>
+    <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-surface max-w-lg w-full max-h-[80vh] flex flex-col border border-ivory/10" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-ivory/10">
+          <h2 className="font-display text-lg text-ivory">{title}</h2>
+          <button onClick={onClose} className="text-ivory/60 hover:text-ivory"><X size={18} /></button>
         </div>
         <div className="overflow-y-auto px-6 py-5">
           <LegalText text={text} />
         </div>
-        <div className="px-6 py-3 border-t border-navy/10">
+        <div className="px-6 py-3 border-t border-ivory/10">
           <GoldButton onClick={onClose}>Close</GoldButton>
         </div>
       </div>
@@ -72,7 +72,7 @@ function Logo({ className = 'h-8' }) {
 
 function SectionLabel({ children }) {
   return (
-    <div className="text-[11px] tracking-[0.24em] uppercase text-wine font-sans mb-2">
+    <div className="text-[11px] tracking-[0.24em] uppercase text-rose font-sans mb-2">
       {children}
     </div>
   );
@@ -81,9 +81,9 @@ function SectionLabel({ children }) {
 function EmptyState({ icon: Icon, title, body }) {
   return (
     <div className="text-center py-16 px-6">
-      <Icon className="mx-auto mb-4 text-navy/25" size={36} strokeWidth={1.25} />
-      <h3 className="font-display text-lg text-navy mb-1">{title}</h3>
-      <p className="text-navy/55 text-sm max-w-sm mx-auto">{body}</p>
+      <Icon className="mx-auto mb-4 text-ivory/30" size={36} strokeWidth={1.25} />
+      <h3 className="font-display text-lg text-ivory mb-1">{title}</h3>
+      <p className="text-ivory/60 text-sm max-w-sm mx-auto">{body}</p>
     </div>
   );
 }
@@ -98,7 +98,7 @@ function Spinner() {
 
 function Card({ children, className = '' }) {
   return (
-    <div className={`bg-white border border-navy/10 rounded-sm ${className}`}>
+    <div className={`bg-surface border border-ivory/10 rounded-sm ${className}`}>
       {children}
     </div>
   );
@@ -115,6 +115,8 @@ function GoldButton({ children, onClick, href, disabled, type = 'button', downlo
   }
   return <button type={type} onClick={onClick} disabled={disabled} className={cls}>{children}</button>;
 }
+
+const inputCls = 'w-full px-3 py-2.5 border border-ivory/20 bg-navy/40 text-ivory placeholder-ivory/35 text-sm focus:outline-gold';
 
 /* ---------------------------------------------------------
    Auth
@@ -162,16 +164,16 @@ function AuthModal({ onClose, onAuthed }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-ivory max-w-sm w-full p-8 relative max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute top-4 right-4 text-navy/40 hover:text-navy">
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-surface max-w-sm w-full p-8 relative max-h-[90vh] overflow-y-auto border border-ivory/10" onClick={(e) => e.stopPropagation()}>
+        <button onClick={onClose} className="absolute top-4 right-4 text-ivory/60 hover:text-ivory">
           <X size={18} />
         </button>
         <Logo className="h-10 mb-6" />
-        <h2 className="font-display text-xl text-navy mb-1">
+        <h2 className="font-display text-xl text-ivory mb-1">
           {mode === 'signup' ? 'Create your account' : 'Welcome back'}
         </h2>
-        <p className="text-sm text-navy/55 mb-6 font-serif italic">
+        <p className="text-sm text-ivory/70 mb-6 font-serif italic">
           Free beta access &mdash; join the room.
         </p>
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -179,48 +181,48 @@ function AuthModal({ onClose, onAuthed }) {
             <input
               type="text" required placeholder="Full name" value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="w-full px-3 py-2.5 border border-navy/20 bg-white text-sm focus:outline-gold"
+              className={inputCls}
             />
           )}
           <input
             type="email" required placeholder="Email" value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2.5 border border-navy/20 bg-white text-sm focus:outline-gold"
+            className={inputCls}
           />
           <input
             type="password" required placeholder="Password" value={password}
             onChange={(e) => setPassword(e.target.value)}
             minLength={6}
-            className="w-full px-3 py-2.5 border border-navy/20 bg-white text-sm focus:outline-gold"
+            className={inputCls}
           />
 
           {mode === 'signup' && (
             <div className="space-y-2 pt-1">
-              <label className="flex items-start gap-2 text-xs text-navy/70">
+              <label className="flex items-start gap-2 text-xs text-ivory/80">
                 <input type="checkbox" checked={agreedTerms} onChange={(e) => setAgreedTerms(e.target.checked)} className="mt-0.5" />
                 <span>
                   I agree to the{' '}
-                  <button type="button" onClick={() => setShowLegal('terms')} className="text-emerald underline">Terms of Use</button>
+                  <button type="button" onClick={() => setShowLegal('terms')} className="text-mint underline">Terms of Use</button>
                 </span>
               </label>
-              <label className="flex items-start gap-2 text-xs text-navy/70">
+              <label className="flex items-start gap-2 text-xs text-ivory/80">
                 <input type="checkbox" checked={agreedPrivacy} onChange={(e) => setAgreedPrivacy(e.target.checked)} className="mt-0.5" />
                 <span>
                   I agree to the{' '}
-                  <button type="button" onClick={() => setShowLegal('privacy')} className="text-emerald underline">Privacy Policy</button>
+                  <button type="button" onClick={() => setShowLegal('privacy')} className="text-mint underline">Privacy Policy</button>
                 </span>
               </label>
             </div>
           )}
 
-          {error && <p className="text-wine text-xs">{error}</p>}
+          {error && <p className="text-rose text-xs">{error}</p>}
           <GoldButton type="submit" disabled={loading || needsConsent}>
             {loading ? <Loader2 className="animate-spin" size={16} /> : (mode === 'signup' ? 'Sign up' : 'Sign in')}
           </GoldButton>
         </form>
         <button
           onClick={() => setMode(mode === 'signup' ? 'signin' : 'signup')}
-          className="mt-4 text-xs text-emerald hover:underline font-sans"
+          className="mt-4 text-xs text-mint hover:underline font-sans"
         >
           {mode === 'signup' ? 'Already a member? Sign in' : "New here? Create an account"}
         </button>
@@ -275,24 +277,24 @@ function MessageThreadModal({ user, otherUserId, otherName, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-ivory max-w-md w-full h-[70vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-navy/10 bg-navy text-ivory">
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-surface max-w-md w-full h-[70vh] flex flex-col border border-ivory/10" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-ivory/10 bg-navy text-ivory">
           <div>
-            <p className="font-display text-base">{otherName}</p>
+            <p className="font-sans font-semibold text-base tracking-tight">{otherName}</p>
             <p className="text-[11px] flex items-center gap-1 text-gold"><ShieldCheck size={12} /> Encrypted message thread</p>
           </div>
-          <button onClick={onClose} className="text-ivory/60 hover:text-ivory"><X size={18} /></button>
+          <button onClick={onClose} className="text-ivory/75 hover:text-ivory"><X size={18} /></button>
         </div>
 
         <div className="flex-grow overflow-y-auto px-5 py-4 space-y-3">
           {messages === null ? <Spinner /> : messages.length === 0 ? (
-            <p className="text-sm text-navy/50 text-center pt-8">No messages yet — say hello.</p>
+            <p className="text-sm text-ivory/55 text-center pt-8">No messages yet — say hello.</p>
           ) : messages.map((m) => {
             const mine = m.sender_id === user.id;
             return (
               <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[75%] px-3.5 py-2 text-sm ${mine ? 'bg-emerald text-ivory' : 'bg-white border border-navy/10 text-navy'}`}>
+                <div className={`max-w-[75%] px-3.5 py-2 text-sm ${mine ? 'bg-emerald text-ivory' : 'bg-navy/50 border border-ivory/10 text-ivory'}`}>
                   {m.body}
                 </div>
               </div>
@@ -300,18 +302,18 @@ function MessageThreadModal({ user, otherUserId, otherName, onClose }) {
           })}
         </div>
 
-        <form onSubmit={handleSend} className="p-3 border-t border-navy/10 flex gap-2">
+        <form onSubmit={handleSend} className="p-3 border-t border-ivory/10 flex gap-2">
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Type a message…"
-            className="flex-grow px-3 py-2.5 border border-navy/20 bg-white text-sm focus:outline-gold"
+            className={inputCls + ' flex-grow'}
           />
           <button type="submit" disabled={sending} className="px-4 bg-gold text-navy disabled:opacity-40">
             {sending ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
           </button>
         </form>
-        {error && <p className="text-wine text-xs px-3 pb-2">{error}</p>}
+        {error && <p className="text-rose text-xs px-3 pb-2">{error}</p>}
       </div>
     </div>
   );
@@ -362,33 +364,33 @@ function ListBusinessForm({ user, existing, onClose, onSaved }) {
 
   const field = (key, label, opts = {}) => (
     <div className="mb-3">
-      <label className="text-[12px] tracking-wide text-wine block mb-1">
-        {label}{DIRECTORY_REQUIRED.includes(key) && <span className="text-wine"> *</span>}
+      <label className="text-[12px] tracking-wide text-rose block mb-1">
+        {label}{DIRECTORY_REQUIRED.includes(key) && <span className="text-rose"> *</span>}
       </label>
       {opts.textarea ? (
         <textarea
           rows={3}
           value={form[key]}
           onChange={(e) => update(key, e.target.value)}
-          className="w-full px-3 py-2 border border-navy/20 bg-white text-sm focus:outline-gold"
+          className={inputCls}
         />
       ) : (
         <input
           type={opts.type || 'text'}
           value={form[key]}
           onChange={(e) => update(key, e.target.value)}
-          className="w-full px-3 py-2 border border-navy/20 bg-white text-sm focus:outline-gold"
+          className={inputCls}
         />
       )}
     </div>
   );
 
   return (
-    <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
-      <div className="bg-ivory max-w-lg w-full p-7 my-8" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
+      <div className="bg-surface max-w-lg w-full p-7 my-8 border border-ivory/10" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-4">
-          <h2 className="font-display text-xl text-navy">{existing ? 'Edit your listing' : 'List your business'}</h2>
-          <button onClick={onClose} className="text-navy/40 hover:text-navy"><X size={18} /></button>
+          <h2 className="font-display text-xl text-ivory">{existing ? 'Edit your listing' : 'List your business'}</h2>
+          <button onClick={onClose} className="text-ivory/60 hover:text-ivory"><X size={18} /></button>
         </div>
         <form onSubmit={handleSubmit}>
           {field('business_name', 'Business name')}
@@ -398,7 +400,7 @@ function ListBusinessForm({ user, existing, onClose, onSaved }) {
           {field('contact_email', 'Contact email', { type: 'email' })}
           {field('phone', 'Phone / WhatsApp')}
           {field('website_url', 'Website')}
-          {error && <p className="text-wine text-xs mb-3">{error}</p>}
+          {error && <p className="text-rose text-xs mb-3">{error}</p>}
           <GoldButton type="submit" disabled={saving}>
             {saving ? <Loader2 className="animate-spin" size={16} /> : existing ? 'Save changes' : 'Submit listing'}
           </GoldButton>
@@ -455,12 +457,12 @@ function DirectoryTab({ user, onRequireAuth }) {
     <div>
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="relative flex-grow">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-navy/40" />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ivory/40" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by name, industry, or parish…"
-            className="w-full pl-9 pr-3 py-2.5 border border-navy/20 bg-white text-sm focus:outline-gold"
+            className={inputCls + ' pl-9'}
           />
         </div>
         <GoldButton onClick={handleAddClick}>
@@ -475,12 +477,12 @@ function DirectoryTab({ user, onRequireAuth }) {
           {filtered.map((b) => (
             <Card key={b.id} className="p-5 flex flex-col">
               <SectionLabel>{b.category}</SectionLabel>
-              <h3 className="font-display text-lg text-navy mb-1">{b.business_name}</h3>
-              <p className="text-xs text-navy/50 mb-2 flex items-center gap-1"><MapPin size={12} /> {b.parish}</p>
-              <p className="text-sm text-navy/75 mb-4 flex-grow line-clamp-4">{b.description}</p>
+              <h3 className="font-sans font-semibold text-lg tracking-tight text-ivory mb-1">{b.business_name}</h3>
+              <p className="text-xs text-ivory/55 mb-2 flex items-center gap-1"><MapPin size={12} /> {b.parish}</p>
+              <p className="text-sm text-ivory/75 mb-4 flex-grow line-clamp-4">{b.description}</p>
               <div className="flex items-center gap-2 mt-auto pt-2">
                 {b.website_url && (
-                  <a href={b.website_url.startsWith('http') ? b.website_url : `https://${b.website_url}`} target="_blank" rel="noopener noreferrer" className="text-xs text-emerald hover:underline flex items-center gap-1">
+                  <a href={b.website_url.startsWith('http') ? b.website_url : `https://${b.website_url}`} target="_blank" rel="noopener noreferrer" className="text-xs text-mint hover:underline flex items-center gap-1">
                     Website <ExternalLink size={11} />
                   </a>
                 )}
@@ -571,10 +573,10 @@ function MessagesTab({ user, onRequireAuth }) {
         >
           <Card className="p-4 flex items-center justify-between hover:border-gold/50 transition-colors">
             <div className="flex items-center gap-3">
-              <MessageCircle size={16} className="text-emerald" />
-              <span className="font-medium text-navy text-sm">{c.name}</span>
+              <MessageCircle size={16} className="text-mint" />
+              <span className="font-sans font-semibold text-ivory text-sm">{c.name}</span>
             </div>
-            <span className="text-xs text-navy/40">{new Date(c.last_message_at).toLocaleDateString()}</span>
+            <span className="text-xs text-ivory/45">{new Date(c.last_message_at).toLocaleDateString()}</span>
           </Card>
         </button>
       ))}
@@ -641,18 +643,18 @@ function EventsTab({ user, onRequireAuth }) {
         return (
           <Card key={ev.id} className="p-5 flex flex-col">
             <SectionLabel>{ev.event_type === 'ticketed' ? 'Ticketed' : 'RSVP'}</SectionLabel>
-            <h3 className="font-display text-lg text-navy mb-1">{ev.title}</h3>
+            <h3 className="font-sans font-semibold text-lg tracking-tight text-ivory mb-1">{ev.title}</h3>
             {date && (
-              <p className="text-xs text-navy/55 mb-2 font-sans">
+              <p className="text-xs text-ivory/55 mb-2 font-sans">
                 {date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
               </p>
             )}
             {ev.location && (
-              <p className="text-xs text-navy/55 mb-3 flex items-center gap-1"><MapPin size={12} /> {ev.location}</p>
+              <p className="text-xs text-ivory/55 mb-3 flex items-center gap-1"><MapPin size={12} /> {ev.location}</p>
             )}
-            {ev.description && <p className="text-sm text-navy/75 mb-4 flex-grow">{ev.description}</p>}
+            {ev.description && <p className="text-sm text-ivory/75 mb-4 flex-grow">{ev.description}</p>}
             <div className="flex items-center justify-between mt-auto pt-2">
-              <span className="text-sm font-serif italic text-emerald">{ev.price_text || 'Free'}</span>
+              <span className="text-sm font-serif italic text-mint">{ev.price_text || 'Free'}</span>
               {ev.event_type === 'ticketed' && ev.ticket_checkout_url ? (
                 <GoldButton href={ev.ticket_checkout_url}>Get ticket</GoldButton>
               ) : (
@@ -678,6 +680,7 @@ function SkillswapTab({ user, onRequireAuth }) {
   const [view, setView] = useState('offers');
   const [skillInput, setSkillInput] = useState('');
   const [posting, setPosting] = useState(false);
+  const [thread, setThread] = useState(null); // { otherUserId, otherName }
 
   const load = useCallback(async () => {
     const [{ data: o }, { data: w }] = await Promise.all([
@@ -702,6 +705,16 @@ function SkillswapTab({ user, onRequireAuth }) {
     setPosting(false);
   }
 
+  function nameFor(item) {
+    return item.profiles?.full_name || item.profiles?.business_name || 'A member';
+  }
+
+  function handleMessageClick(item) {
+    if (!user) return onRequireAuth();
+    if (item.user_id === user.id) return;
+    setThread({ otherUserId: item.user_id, otherName: nameFor(item) });
+  }
+
   const list = view === 'offers' ? offers : wants;
 
   return (
@@ -711,7 +724,7 @@ function SkillswapTab({ user, onRequireAuth }) {
           <button
             key={v}
             onClick={() => setView(v)}
-            className={`px-4 py-2 text-[13px] tracking-wide uppercase font-sans border ${view === v ? 'bg-navy text-ivory border-navy' : 'border-navy/20 text-navy/60 hover:border-navy/40'}`}
+            className={`px-4 py-2 text-[13px] tracking-wide uppercase font-sans border ${view === v ? 'bg-gold text-navy border-gold' : 'border-ivory/20 text-ivory/70 hover:border-ivory/40'}`}
           >
             {v === 'offers' ? 'Skills offered' : 'Skills wanted'}
           </button>
@@ -723,7 +736,7 @@ function SkillswapTab({ user, onRequireAuth }) {
           value={skillInput}
           onChange={(e) => setSkillInput(e.target.value)}
           placeholder={view === 'offers' ? 'A skill you can offer, e.g. "Bookkeeping"' : 'A skill you need, e.g. "Logo design"'}
-          className="flex-grow px-3 py-2.5 border border-navy/20 bg-white text-sm focus:outline-gold"
+          className={inputCls + ' flex-grow'}
         />
         <GoldButton type="submit" disabled={posting}>
           {posting ? <Loader2 className="animate-spin" size={14} /> : 'Post'}
@@ -734,15 +747,35 @@ function SkillswapTab({ user, onRequireAuth }) {
         <EmptyState icon={Users} title="Nothing posted yet" body="Be the first to post a skill in this category." />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {list.map((item) => (
-            <Card key={item.id} className="p-4 flex items-center justify-between">
-              <div>
-                <p className="font-medium text-navy text-sm">{item.skill}</p>
-                <p className="text-xs text-navy/50">{item.profiles?.full_name || item.profiles?.business_name || 'A member'}</p>
-              </div>
-            </Card>
-          ))}
+          {list.map((item) => {
+            const isMine = item.user_id === user?.id;
+            return (
+              <Card key={item.id} className="p-4 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium text-ivory text-sm truncate">{item.skill}</p>
+                  <p className="text-xs text-ivory/55 truncate">{nameFor(item)}</p>
+                </div>
+                {!isMine && (
+                  <button
+                    onClick={() => handleMessageClick(item)}
+                    className="flex-shrink-0 flex items-center gap-1 text-xs uppercase tracking-wide text-mint hover:underline"
+                  >
+                    <MessageCircle size={13} /> Message
+                  </button>
+                )}
+              </Card>
+            );
+          })}
         </div>
+      )}
+
+      {thread && (
+        <MessageThreadModal
+          user={user}
+          otherUserId={thread.otherUserId}
+          otherName={thread.otherName}
+          onClose={() => setThread(null)}
+        />
       )}
     </div>
   );
@@ -774,59 +807,16 @@ function ShopTab() {
       {products.map((p) => (
         <Card key={p.id} className="p-5 flex flex-col">
           {p.image_url && <img src={p.image_url} alt={p.name} className="w-full h-36 object-cover mb-3" />}
-          <h3 className="font-display text-base text-navy mb-1">{p.name}</h3>
-          {p.description && <p className="text-sm text-navy/70 mb-3 flex-grow">{p.description}</p>}
+          <h3 className="font-sans font-semibold text-base tracking-tight text-ivory mb-1">{p.name}</h3>
+          {p.description && <p className="text-sm text-ivory/75 mb-3 flex-grow">{p.description}</p>}
           <div className="flex items-center justify-between mt-auto pt-2">
-            <span className="text-sm font-serif italic text-emerald">{p.price_text}</span>
+            <span className="text-sm font-serif italic text-mint">{p.price_text}</span>
             {p.checkout_url ? (
               <GoldButton href={p.checkout_url}>Buy</GoldButton>
             ) : (
-              <span className="text-xs text-navy/40 uppercase tracking-wide">{p.stock_status?.replace('_', ' ')}</span>
+              <span className="text-xs text-ivory/45 uppercase tracking-wide">{p.stock_status?.replace('_', ' ')}</span>
             )}
           </div>
-        </Card>
-      ))}
-    </div>
-  );
-}
-
-/* ---------------------------------------------------------
-   Jobs tab
---------------------------------------------------------- */
-
-function JobsTab() {
-  const [jobs, setJobs] = useState(null);
-
-  useEffect(() => {
-    supabase
-      .from('jobs')
-      .select('*')
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => setJobs(data || []));
-  }, []);
-
-  if (jobs === null) return <Spinner />;
-  if (jobs.length === 0) {
-    return <EmptyState icon={Briefcase} title="No listings yet" body="Job postings from Boardroom JA members and partners will appear here." />;
-  }
-
-  return (
-    <div className="space-y-3">
-      {jobs.map((j) => (
-        <Card key={j.id} className="p-5 flex items-center justify-between gap-4">
-          <div>
-            <h3 className="font-display text-base text-navy mb-0.5">{j.title}</h3>
-            <p className="text-sm text-navy/60">{j.company}{j.location ? ` · ${j.location}` : ''}</p>
-          </div>
-          <a
-            href={j.external_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-shrink-0 inline-flex items-center gap-1 text-xs uppercase tracking-wide text-emerald hover:underline"
-          >
-            View <ExternalLink size={12} />
-          </a>
         </Card>
       ))}
     </div>
@@ -860,7 +850,7 @@ function ResourcesTab() {
     <div>
       <div className="mb-6 flex items-start gap-2 bg-gold/10 border border-gold/30 px-4 py-3">
         <Sparkles size={16} className="text-gold flex-shrink-0 mt-0.5" />
-        <p className="text-sm text-navy/70">
+        <p className="text-sm text-ivory/85">
           Beta access — every resource here is free while we're testing. Paid, member-only resources arrive later.
         </p>
       </div>
@@ -868,8 +858,8 @@ function ResourcesTab() {
         {resources.map((r) => (
           <Card key={r.id} className="p-5 flex flex-col">
             <SectionLabel>{r.category || 'Resource'}</SectionLabel>
-            <h3 className="font-display text-lg text-navy mb-1">{r.title}</h3>
-            {r.description && <p className="text-sm text-navy/70 mb-4 flex-grow">{r.description}</p>}
+            <h3 className="font-sans font-semibold text-lg tracking-tight text-ivory mb-1">{r.title}</h3>
+            {r.description && <p className="text-sm text-ivory/75 mb-4 flex-grow">{r.description}</p>}
             {r.file_url && (
               <GoldButton href={r.file_url} download={r.file_url.split('/').pop()}>
                 <Download size={14} /> Download
@@ -888,18 +878,20 @@ function ResourcesTab() {
 
 const TABS = [
   { key: 'directory', label: 'Directory', icon: Building2, Comp: DirectoryTab, accent: '#7A1E3D' },
-  { key: 'events', label: 'Events', icon: Calendar, Comp: EventsTab, accent: '#C9A227' },
+  { key: 'events', label: 'Events', icon: Calendar, Comp: EventsTab, accent: '#0B1B2B' },
   { key: 'skillswap', label: 'Skillswap', icon: Users, Comp: SkillswapTab, accent: '#114B3B' },
   { key: 'shop', label: 'Shop', icon: ShoppingBag, Comp: ShopTab, accent: '#7A1E3D' },
-  { key: 'jobs', label: 'Jobs', icon: Briefcase, Comp: JobsTab, accent: '#114B3B' },
-  { key: 'resources', label: 'Resources', icon: FileText, Comp: ResourcesTab, accent: '#C9A227' },
+  { key: 'resources', label: 'Resources', icon: FileText, Comp: ResourcesTab, accent: '#0B1B2B' },
   { key: 'messages', label: 'Messages', icon: Inbox, Comp: MessagesTab, accent: '#114B3B' },
 ];
 
 export default function App() {
   const [user, setUser] = useState(undefined); // undefined = loading, null = signed out
+  const [profile, setProfile] = useState(null); // { membership_tier, membership_status }
   const [tab, setTab] = useState('directory');
   const [showAuth, setShowAuth] = useState(false);
+  const [upgrading, setUpgrading] = useState(false);
+  const [membershipNotice, setMembershipNotice] = useState(null); // 'success' | 'cancelled' | null
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
@@ -909,30 +901,87 @@ export default function App() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!user) { setProfile(null); return; }
+    supabase
+      .from('profiles')
+      .select('membership_tier, membership_status')
+      .eq('id', user.id)
+      .maybeSingle()
+      .then(({ data }) => setProfile(data || null));
+  }, [user]);
+
+  // Pick up ?membership=success|cancelled after returning from Stripe Checkout
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get('membership');
+    if (result === 'success' || result === 'cancelled') {
+      setMembershipNotice(result);
+      params.delete('membership');
+      const rest = params.toString();
+      window.history.replaceState({}, '', window.location.pathname + (rest ? `?${rest}` : ''));
+    }
+  }, []);
+
+  async function handleUpgradeClick() {
+    if (!user) return setShowAuth(true);
+    setUpgrading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-checkout-session');
+      if (error) throw error;
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error(data?.error || 'Could not start checkout.');
+      }
+    } catch (err) {
+      alert(err.message || 'Something went wrong starting checkout. Please try again.');
+      setUpgrading(false);
+    }
+  }
+
+  const isPaid = profile?.membership_tier === 'paid';
   const active = TABS.find((t) => t.key === tab);
   const ActiveComp = active.Comp;
 
   return (
-    <div className="min-h-screen bg-ivory font-sans">
+    <div className="min-h-screen bg-navy font-sans text-ivory">
       {/* Header */}
-      <header className="bg-navy text-ivory sticky top-0 z-40 shadow-md">
+      <header className="bg-surface text-ivory sticky top-0 z-40 shadow-md border-b border-ivory/10">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <Logo className="h-9" />
-          {user === undefined ? null : user ? (
-            <button
-              onClick={() => supabase.auth.signOut()}
-              className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-ivory/80 hover:text-gold"
-            >
-              <LogOut size={14} /> Sign out
-            </button>
-          ) : (
-            <button
-              onClick={() => setShowAuth(true)}
-              className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-ivory/80 hover:text-gold"
-            >
-              <LogIn size={14} /> Sign in
-            </button>
-          )}
+          <div className="flex items-center gap-4">
+            {user && (
+              isPaid ? (
+                <span className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-gold">
+                  <Crown size={13} /> Paid member
+                </span>
+              ) : (
+                <button
+                  onClick={handleUpgradeClick}
+                  disabled={upgrading}
+                  className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-gold hover:text-ivory disabled:opacity-50"
+                >
+                  {upgrading ? <Loader2 className="animate-spin" size={14} /> : <Crown size={14} />} Upgrade
+                </button>
+              )
+            )}
+            {user === undefined ? null : user ? (
+              <button
+                onClick={() => supabase.auth.signOut()}
+                className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-ivory/90 hover:text-gold"
+              >
+                <LogOut size={14} /> Sign out
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowAuth(true)}
+                className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-ivory/90 hover:text-gold"
+              >
+                <LogIn size={14} /> Sign in
+              </button>
+            )}
+          </div>
         </div>
         <div className="border-t border-ivory/10">
           <div className="max-w-5xl mx-auto px-2 flex overflow-x-auto scrollbar-none">
@@ -940,12 +989,12 @@ export default function App() {
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                style={tab === t.key ? { borderColor: t.accent, color: t.accent } : undefined}
+                style={tab === t.key ? { borderColor: t.accent } : undefined}
                 className={`flex items-center gap-1.5 px-4 py-3 text-[13px] tracking-wide uppercase whitespace-nowrap border-b-2 transition-colors ${
-                  tab === t.key ? '' : 'border-transparent text-ivory/60 hover:text-ivory'
+                  tab === t.key ? 'text-ivory' : 'border-transparent text-ivory/70 hover:text-ivory'
                 }`}
               >
-                <t.icon size={14} /> {t.label}
+                <t.icon size={14} style={tab === t.key ? { color: t.accent } : undefined} /> {t.label}
               </button>
             ))}
           </div>
@@ -953,22 +1002,39 @@ export default function App() {
       </header>
 
       {/* Beta banner */}
-      <div className="bg-emerald/10 border-b border-emerald/20">
-        <div className="max-w-5xl mx-auto px-4 py-2 text-center text-xs text-emerald font-medium">
+      <div className="bg-emerald/20 border-b border-emerald/30">
+        <div className="max-w-5xl mx-auto px-4 py-2 text-center text-xs text-mint font-medium">
           You're on the free beta — everything is open while we test. Thank you for being here early.
         </div>
       </div>
 
+      {membershipNotice === 'success' && (
+        <div className="bg-gold/20 border-b border-gold/40">
+          <div className="max-w-5xl mx-auto px-4 py-2 text-center text-xs text-gold font-medium flex items-center justify-center gap-2">
+            <Crown size={13} /> Welcome in — your paid membership is active.
+            <button onClick={() => setMembershipNotice(null)} className="text-gold/70 hover:text-gold"><X size={13} /></button>
+          </div>
+        </div>
+      )}
+      {membershipNotice === 'cancelled' && (
+        <div className="bg-wine/30 border-b border-wine/40">
+          <div className="max-w-5xl mx-auto px-4 py-2 text-center text-xs text-rose font-medium flex items-center justify-center gap-2">
+            Checkout was cancelled — no payment was taken.
+            <button onClick={() => setMembershipNotice(null)} className="text-rose/70 hover:text-rose"><X size={13} /></button>
+          </div>
+        </div>
+      )}
+
       {/* Main */}
       <main className="max-w-5xl mx-auto px-4 py-8">
-        <div className="mb-6">
-          <h1 className="font-display text-2xl" style={{ color: active.accent }}>{active.label}</h1>
+        <div className="mb-6 inline-block border-b-2 pb-1" style={{ borderColor: active.accent }}>
+          <h1 className="font-display text-2xl text-ivory">{active.label}</h1>
         </div>
         <ActiveComp user={user} onRequireAuth={() => setShowAuth(true)} />
       </main>
 
-      <footer className="border-t border-navy/10 py-8 mt-12">
-        <div className="max-w-5xl mx-auto px-4 text-center text-xs text-navy/40 font-serif italic">
+      <footer className="border-t border-ivory/10 py-8 mt-12">
+        <div className="max-w-5xl mx-auto px-4 text-center text-xs text-ivory/45 font-serif italic">
           The Boardroom JA — Build the table. Don't wait for a seat.
         </div>
       </footer>
