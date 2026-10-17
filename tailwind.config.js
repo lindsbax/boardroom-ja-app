@@ -4,18 +4,18 @@ export default {
   theme: {
     extend: {
       colors: {
-        navy: "#0B1B2B",
-        surface: "#152A40",
-        emerald: "#114B3B",
-        wine: "#7A1E3D",
-        gold: "#C9A227",
+        navy: "#070D1A",
+        surface: "#0F1729",
+        emerald: "#0B5D45",
+        wine: "#7F1D3A",
+        gold: "#D4A33A",
         ivory: "#F7F2E9",
-        mint: "#4CC199",
-        rose: "#D9789B",
+        mint: "#0B9A68",
+        rose: "#D6455D",
       },
       fontFamily: {
-        display: ["Cinzel", "serif"],
-        serif: ["'Cormorant Garamond'", "serif"],
+        display: ["Jost", "sans-serif"],
+        serif: ["Jost", "sans-serif"],
         sans: ["Jost", "sans-serif"],
       },
     },
