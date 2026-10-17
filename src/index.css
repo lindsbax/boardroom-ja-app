@@ -1,17 +1,24 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Cormorant+Garamond:ital,wght@1,400;1,500;1,600&family=Jost:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-* { box-sizing: border-box; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 body {
   margin: 0;
-  background: #0B1B2B;
+  background: #070D1A;
+  background-image: radial-gradient(900px 420px at 50% -8%, rgba(212,163,58,0.08), transparent 70%);
+  background-attachment: fixed;
   color: #F7F2E9;
   font-family: 'Jost', sans-serif;
   font-weight: 400;
+  -webkit-font-smoothing: antialiased;
 }
+.font-display { font-weight: 600; letter-spacing: -0.015em; }
 
 .scrollbar-none::-webkit-scrollbar { display: none; }
 .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+.btn-gold { background: linear-gradient(135deg, #F0D182 0%, #D4A33A 48%, #B07F26 100%); }
