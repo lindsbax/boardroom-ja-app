@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 
 // Public key only. It is safe to be in the app. The matching private key lives in Supabase Edge Function Secrets.
-export const VAPID_PUBLIC_KEY = 'BB2MwejxdFph1hRe1Q9IspqmkjJxtkvqwH43fCLudYbpKGM95Ht32hPGvi2M0W_gJanpQJWJU8uwE4swlUgZzwk';
+export const VAPID_PUBLIC_KEY = 'BKvWIMPgqh-xMFLlPqtQW521T8GYrHAjnZ3bQS25OKVaRGSbn3eaQ8BbIDHbCqxva6MR_FJuksUyWK6p4nQvf-E';
 
 function urlBase64ToUint8Array(b64) {
   const pad = '='.repeat((4 - (b64.length % 4)) % 4);
