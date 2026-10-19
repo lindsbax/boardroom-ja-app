@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from './lib/supabase';
+import { pushSupported, isIOS, isInstalledApp, currentPushState, enablePush, disablePush } from './lib/push';
 import { PRIVACY_POLICY_TEXT, TERMS_OF_USE_TEXT } from './lib/legalText';
 import { SELLER_TERMS_TEXT, COMMISSION_PCT, PAYMENT_TERMS_DAYS } from './lib/sellerTerms';
 import { COUNTRIES, REFUND_POLICIES, REFUND_OPTIONS, STATUTORY_NOTE, scheduleFor, needsDigitalWaiver, payoutRoute, MIN_PAYOUT } from './lib/legalSchedules';
@@ -7,7 +8,8 @@ import {
   Calendar, Users, ShoppingBag, FileText, LogIn, LogOut,
   MapPin, X, Download, ExternalLink, Loader2, Sparkles, Building2,
   MessageCircle, Send, Search, ShieldCheck, Inbox, Plus, Crown,
-  Shirt, Utensils, Home, Palette, Briefcase, GraduationCap, Printer, Package, Store, Truck, ArrowLeft, TrendingUp, Check, Star, Flag, Ban, User, Trash2, Lock
+  Shirt, Utensils, Home, Palette, Briefcase, GraduationCap, Printer, Package, Store, Truck, ArrowLeft, TrendingUp, Check, Star, Flag, Ban, User, Trash2, Lock,
+  Menu, Bell, BellRing, ChevronRight, Gift, Megaphone, Eye, CalendarClock, CheckCheck, Settings, Tag
 } from 'lucide-react';
 
 /* ---------------------------------------------------------
@@ -50,7 +52,7 @@ function LegalModal({ title, text, onClose }) {
       <div className="bg-surface max-w-lg w-full max-h-[80vh] flex flex-col border border-ivory/10 rounded-3xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-ivory/10">
           <h2 className="font-display text-lg text-ivory">{title}</h2>
-          <button onClick={onClose} className="text-ivory/60 hover:text-ivory"><X size={18} /></button>
+          <button onClick={onClose} aria-label="Close" className="w-11 h-11 -mt-2 -mr-3 flex items-center justify-center text-ivory/60 hover:text-ivory"><X size={18} /></button>
         </div>
         <div className="overflow-y-auto px-6 py-5">
           <LegalText text={text} />
@@ -108,7 +110,7 @@ function Card({ children, className = '' }) {
 }
 
 function GoldButton({ children, onClick, href, disabled, type = 'button', download }) {
-  const cls = 'inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full btn-gold text-navy text-sm font-semibold hover:brightness-110 active:scale-[0.98] transition disabled:opacity-40 disabled:cursor-not-allowed';
+  const cls = 'inline-flex items-center justify-center gap-2 px-5 py-2.5 min-h-[44px] rounded-full btn-gold text-navy text-sm font-semibold hover:brightness-110 active:scale-[0.98] transition disabled:opacity-40 disabled:cursor-not-allowed';
   // Only real web links are allowed. Blocks javascript: and other unsafe schemes in member-submitted links.
   const safeHref = href && /^(https?:\/\/|\/|#)/i.test(String(href).trim()) ? String(href).trim() : null;
   if (href && !safeHref) return null;
@@ -306,7 +308,7 @@ function ReportLink({ user, onRequireAuth, type, id, label = 'Report' }) {
   if (user && user.id === id) return null;
   return (
     <>
-      <button type="button" onClick={(e) => { e.stopPropagation(); user ? setOpen(true) : onRequireAuth && onRequireAuth(); }} className="text-[11px] text-ivory/40 hover:text-ivory/75 inline-flex items-center gap-1" aria-label={label}>
+      <button type="button" onClick={(e) => { e.stopPropagation(); user ? setOpen(true) : onRequireAuth && onRequireAuth(); }} className="text-[11px] text-ivory/50 hover:text-ivory/75 inline-flex items-center gap-1 min-h-[44px] pr-3" aria-label={label}>
         <Flag size={11} /> {label}
       </button>
       {open && <ReportModal target={{ type, id }} onClose={() => setOpen(false)} />}
@@ -373,7 +375,7 @@ function AdminMembersModal({ onClose }) {
               <p className="font-semibold text-ivory">{r.business_name || 'No business details yet'}</p>
               <p className="text-ivory/75">{r.full_name || 'No name given'} · {r.email}</p>
               {(r.category || r.parish) && <p className="text-xs text-ivory/55 mt-1">{[r.category, r.parish].filter(Boolean).join(' · ')}</p>}
-              {r.website_url && /^https?:\/\//i.test(r.website_url) && <a href={r.website_url} target="_blank" rel="noopener noreferrer" className="text-xs text-mint hover:underline inline-flex items-center gap-1">Website <ExternalLink size={11} /></a>}
+              {r.website_url && /^https?:\/\//i.test(r.website_url) && <a href={r.website_url} target="_blank" rel="noopener noreferrer" className="text-xs text-mint hover:underline inline-flex items-center gap-1 min-h-[44px]">Website <ExternalLink size={11} /></a>}
               <p className="text-xs text-ivory/55">Registered: {r.is_registered || 'not given'}{r.registered_countries ? ` (${r.registered_countries})` : ''}</p>
               <p className="text-[11px] text-ivory/40 mt-1">{tab === 'unconfirmed' ? 'Signed up' : 'Applied'} {new Date(r.applied_at).toLocaleDateString()}</p>
               {r.trial_ends_at && <p className="text-xs text-gold mt-1">{new Date(r.trial_ends_at) > new Date() ? `Beta trial ends ${new Date(r.trial_ends_at).toLocaleDateString()}` : `Beta trial ended ${new Date(r.trial_ends_at).toLocaleDateString()}`}</p>}
@@ -472,6 +474,10 @@ function AccountModal({ user, profile, betaActive, betaDaysLeft, onSubscribe, on
               <button onClick={manageBilling} disabled={billBusy} className="text-sm text-gold underline underline-offset-2">{billBusy ? 'Opening…' : 'Manage or cancel membership'}</button>
             )}
             {billErr && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs mt-2">{billErr}</p>}
+          </div>
+          <div>
+            <h4 className="text-xs font-medium tracking-[0.14em] uppercase text-gold/80 mb-2">Notifications</h4>
+            <NotificationSettings user={user} />
           </div>
           <div className="flex flex-wrap gap-4 text-sm">
             <button onClick={() => onLegal('terms')} className="text-gold underline underline-offset-2">Terms of Use</button>
@@ -612,6 +618,14 @@ function MessageThreadModal({ user, otherUserId, otherName, onClose }) {
 
 const DIRECTORY_REQUIRED = ['business_name', 'category', 'description', 'parish', 'contact_email'];
 
+const BUSINESS_CATEGORIES = [
+  'Accounting and Finance', 'Agriculture and Food Production', 'Arts, Crafts and Culture', 'Beauty and Wellness',
+  'Business Consulting', 'Construction and Real Estate', 'Creative and Design', 'Education and Training',
+  'Events and Hospitality', 'Fashion and Apparel', 'Food and Beverage', 'Health and Medical', 'Legal Services',
+  'Logistics and Transport', 'Marketing and Media', 'Non-profit and Community', 'Procurement and Services',
+  'Retail and E-commerce', 'Technology and IT', 'Tourism and Travel', 'Other',
+];
+
 function ListBusinessForm({ user, existing, onClose, onSaved, onboarding = false, pendingReview = false }) {
   const [form, setForm] = useState({
     business_name: existing?.business_name || '',
@@ -700,8 +714,8 @@ function ListBusinessForm({ user, existing, onClose, onSaved, onboarding = false
   const PRIVATE = 'Not shared publicly';
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
-      <div className="bg-surface max-w-lg w-full p-7 my-8 border border-ivory/10 rounded-3xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 bg-black/60 flex p-4 overflow-y-auto overscroll-contain" onClick={onClose}>
+      <div className="bg-surface max-w-lg w-full p-5 sm:p-7 my-auto mx-auto border border-ivory/10 rounded-3xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-1">
           <h2 className="font-display text-xl text-ivory">{onboarding ? 'Welcome. Tell us about your business' : existing ? 'Edit your listing' : 'List your business'}</h2>
           <button onClick={onClose} className="text-ivory/60 hover:text-ivory" aria-label="Close"><X size={18} /></button>
@@ -709,7 +723,12 @@ function ListBusinessForm({ user, existing, onClose, onSaved, onboarding = false
         {onboarding && <p className="text-xs text-ivory/60 mb-4">{pendingReview ? 'Our team reviews every application. Only the fields marked "Shown publicly" will appear to other people, and only once you are approved.' : 'This sets up your Directory listing. Only the fields marked "Shown publicly" appear to other people.'}</p>}
         <form onSubmit={handleSubmit} className={onboarding ? '' : 'mt-3'}>
           <div className="mb-3">{lbl('Business name', true, PUBLIC)}<input className={inputCls} value={form.business_name} onChange={(e) => update('business_name', e.target.value)} /></div>
-          <div className="mb-3">{lbl('Industry / category', true, PUBLIC)}<input className={inputCls} value={form.category} onChange={(e) => update('category', e.target.value)} /></div>
+          <div className="mb-3">{lbl('Industry / category', true, PUBLIC)}
+            <select className={inputCls} value={form.category} onChange={(e) => update('category', e.target.value)}>
+              <option value="">Choose a category…</option>
+              {(form.category && !BUSINESS_CATEGORIES.includes(form.category) ? [form.category, ...BUSINESS_CATEGORIES] : BUSINESS_CATEGORIES).map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
           <div className="mb-3">{lbl('Description', true, PUBLIC)}<textarea rows={3} className={inputCls} value={form.description} onChange={(e) => update('description', e.target.value)} /></div>
           <div className="mb-3">{lbl('Parish', true, PUBLIC)}<input className={inputCls} value={form.parish} onChange={(e) => update('parish', e.target.value)} /></div>
           <div className="mb-5">{lbl('Website', false, PUBLIC)}<input className={inputCls} value={form.website_url} onChange={(e) => update('website_url', e.target.value)} placeholder="https://" /></div>
@@ -753,10 +772,12 @@ function ListBusinessForm({ user, existing, onClose, onSaved, onboarding = false
 function DirectoryTab({ user, onRequireAuth, isPaid, onUpgrade, isApproved, status, onApply }) {
   const [businesses, setBusinesses] = useState(null);
   const [query, setQuery] = useState('');
+  const [cat, setCat] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [myListing, setMyListing] = useState(null);
   const [thread, setThread] = useState(null); // { otherUserId, otherName }
   const [messageable, setMessageable] = useState(new Set());
+  const [detail, setDetail] = useState(null);
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -778,12 +799,8 @@ function DirectoryTab({ user, onRequireAuth, isPaid, onUpgrade, isApproved, stat
     setBusinesses((data || []).filter((b) => !blockedIds.has(b.user_id)).map((b) => ({ ...b, avg_rating: smap[b.user_id]?.avg_rating, review_count: smap[b.user_id]?.review_count || 0 })));
 
     if (user) {
-      const { data: mine } = await supabase
-        .from('business_directory')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      setMyListing(mine || null);
+      const { data: mine } = await supabase.rpc('my_listing');
+      setMyListing((Array.isArray(mine) ? mine[0] : mine) || null);
     }
   }, [user]);
 
@@ -799,12 +816,17 @@ function DirectoryTab({ user, onRequireAuth, isPaid, onUpgrade, isApproved, stat
   function handleMessageClick(biz) {
     if (!user) return onRequireAuth();
     if (biz.user_id === user.id) return;
+    supabase.rpc('record_view', { p_type: 'listing', p_id: biz.id }).then(() => {}, () => {});
     setThread({ otherUserId: biz.user_id, otherName: biz.business_name });
   }
 
+  const catCounts = {};
+  (businesses || []).forEach((b) => { if (b.category) catCounts[b.category] = (catCounts[b.category] || 0) + 1; });
+  const catOptions = Object.keys(catCounts).sort((a, b) => a.localeCompare(b));
   const filtered = (businesses || []).filter((b) => {
-    const q = query.toLowerCase();
-    return !q || b.business_name.toLowerCase().includes(q) || b.category?.toLowerCase().includes(q) || b.parish?.toLowerCase().includes(q);
+    if (cat && b.category !== cat) return false;
+    const q = query.trim().toLowerCase();
+    return !q || [b.business_name, b.category, b.parish, b.description].some((v) => v && v.toLowerCase().includes(q));
   });
 
   return (
@@ -815,10 +837,14 @@ function DirectoryTab({ user, onRequireAuth, isPaid, onUpgrade, isApproved, stat
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name, industry, or parish…"
+            placeholder="Search by keyword, name or parish…"
             className={inputCls + ' pl-9'}
           />
         </div>
+        <select value={cat} onChange={(e) => setCat(e.target.value)} aria-label="Filter by category" className={inputCls + ' sm:w-60'}>
+          <option value="">All categories</option>
+          {catOptions.map((c) => <option key={c} value={c}>{c} ({catCounts[c]})</option>)}
+        </select>
         <GoldButton onClick={handleAddClick}>
           <Plus size={14} /> {isApproved || status === null ? (myListing ? 'Edit my listing' : 'List my business') : status === 'pending' ? 'Application pending' : status === 'declined' ? 'Not available' : 'Apply to join'}
         </GoldButton>
@@ -838,19 +864,22 @@ function DirectoryTab({ user, onRequireAuth, isPaid, onUpgrade, isApproved, stat
       )}
 
       {businesses === null ? <Spinner /> : filtered.length === 0 ? (
-        <EmptyState icon={Building2} title="No businesses found" body="Try a different search, or be the first to list your business." />
+        <div className="text-center">
+          <EmptyState icon={Building2} title="No businesses found" body="Try a different keyword or category, or be the first to list your business." />
+          {(query || cat) && <button onClick={() => { setQuery(''); setCat(''); }} className="text-sm text-gold underline underline-offset-2">Clear search and category</button>}
+        </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {filtered.map((b) => (
             <Card key={b.id} className="p-5 flex flex-col">
               <SectionLabel>{b.category}</SectionLabel>
-              <h3 className="font-sans font-semibold text-lg tracking-tight text-ivory mb-1">{b.business_name}</h3>
+              <h3 className="font-sans font-semibold text-lg tracking-tight text-ivory mb-1"><button type="button" onClick={() => setDetail(b)} className="text-left hover:text-gold min-h-[44px]">{b.business_name}</button></h3>
               <p className="text-xs text-ivory/55 mb-2 flex items-center gap-1"><MapPin size={12} /> {b.parish}</p>
               {b.review_count > 0 && <div className="mb-2 flex items-center gap-2"><StarRating value={b.avg_rating} count={b.review_count} /><span className="text-[11px] text-ivory/45">verified shop buyers</span></div>}
               <p className="text-sm text-ivory/75 mb-4 flex-grow line-clamp-4">{b.description}</p>
               <div className="flex items-center gap-2 mt-auto pt-2">
                 {b.website_url && (
-                  <a href={b.website_url.startsWith('http') ? b.website_url : `https://${b.website_url}`} target="_blank" rel="noopener noreferrer" className="text-xs text-mint hover:underline flex items-center gap-1">
+                  <a href={b.website_url.startsWith('http') ? b.website_url : `https://${b.website_url}`} target="_blank" rel="noopener noreferrer" className="text-xs text-mint hover:underline flex items-center gap-1 min-h-[44px] pr-2">
                     Website <ExternalLink size={11} />
                   </a>
                 )}
@@ -875,6 +904,15 @@ function DirectoryTab({ user, onRequireAuth, isPaid, onUpgrade, isApproved, stat
           existing={myListing}
           onClose={() => setShowForm(false)}
           onSaved={load}
+        />
+      )}
+      {detail && (
+        <ListingModal
+          biz={detail}
+          user={user}
+          canMessage={!!user && detail.user_id !== user.id && messageable.has(detail.user_id)}
+          onMessage={() => { const b = detail; setDetail(null); handleMessageClick(b); }}
+          onClose={() => setDetail(null)}
         />
       )}
       {thread && (
@@ -999,11 +1037,11 @@ function SellerAgree({ checked, onChange, onReadTerms }) {
 
 function FormModal({ title, onClose, children }) {
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
-      <div className="bg-surface max-w-lg w-full p-7 my-8 border border-ivory/10 rounded-3xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 bg-black/60 flex p-4 overflow-y-auto overscroll-contain" onClick={onClose}>
+      <div className="bg-surface max-w-lg w-full p-5 sm:p-7 my-auto mx-auto border border-ivory/10 rounded-3xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-4">
           <h2 className="font-display text-xl text-ivory">{title}</h2>
-          <button onClick={onClose} className="text-ivory/60 hover:text-ivory"><X size={18} /></button>
+          <button onClick={onClose} aria-label="Close" className="w-11 h-11 -mt-2 -mr-3 flex items-center justify-center text-ivory/60 hover:text-ivory"><X size={18} /></button>
         </div>
         {children}
       </div>
@@ -1022,8 +1060,8 @@ function FField({ label, required, children }) {
   );
 }
 
-function EventForm({ user, onClose, onSaved }) {
-  const [f, setF] = useState({ title: '', description: '', event_date: '', location: '', host_name: '', event_type: 'rsvp', price_text: '', ticket_checkout_url: '', external_url: '' });
+function EventForm({ user, isAdmin, onClose, onSaved }) {
+  const [f, setF] = useState({ title: '', description: '', event_date: '', location: '', city: '', country: '', is_online: false, host_name: '', event_type: 'rsvp', price_text: '', ticket_checkout_url: '', external_url: '' });
   const [agreed, setAgreed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -1036,19 +1074,23 @@ function EventForm({ user, onClose, onSaved }) {
     if (!f.title.trim() || !f.event_date) return setError('Please add a title and a date.');
     if (ticketed && (!f.price_text.trim() || !f.ticket_checkout_url.trim())) return setError('Ticketed events need a price and a ticket link.');
     if (ticketed && !agreed) return setError('Please agree to the Seller and Organizer Terms.');
+    if (!f.is_online && (!f.city.trim() || !f.country)) return setError('Please add the city and country, or mark the event as online.');
     setSaving(true); setError('');
     const { error: err } = await supabase.from('events').insert({
       title: f.title.trim(),
       description: f.description.trim() || null,
       event_date: new Date(f.event_date).toISOString(),
-      location: f.location.trim() || null,
+      location: f.is_online ? (f.location.trim() || 'Online') : (f.location.trim() || null),
+      is_online: f.is_online,
+      city: f.is_online ? null : f.city.trim().slice(0, 80),
+      country: f.is_online ? null : f.country,
       host_name: f.host_name.trim() || null,
       event_type: f.event_type,
       price_text: ticketed ? f.price_text.trim() : 'Free',
       ticket_checkout_url: ticketed ? f.ticket_checkout_url.trim() : null,
       external_url: f.external_url.trim() || null,
       created_by: user.id,
-      review_status: 'pending',
+      review_status: isAdmin ? 'approved' : 'pending',
       is_active: true,
       ...(ticketed ? { seller_terms_accepted_at: new Date().toISOString() } : {}),
     });
@@ -1063,14 +1105,28 @@ function EventForm({ user, onClose, onSaved }) {
       <form onSubmit={submit}>
         <FField label="Event name" required><input className={inputCls} value={f.title} onChange={(e) => set('title', e.target.value)} /></FField>
         <FField label="Date and time" required><input type="datetime-local" className={inputCls} value={f.event_date} onChange={(e) => set('event_date', e.target.value)} /></FField>
-        <FField label="Location"><input className={inputCls} value={f.location} onChange={(e) => set('location', e.target.value)} placeholder="Venue, or Online" /></FField>
+        <FField label="Where is it?">
+          <div className="flex gap-2">
+            {[[false, 'In person'], [true, 'Online']].map(([v, l]) => (
+              <button key={l} type="button" onClick={() => set('is_online', v)}
+                className={`px-4 min-h-[44px] text-sm font-medium rounded-full border ${f.is_online === v ? 'bg-gold text-navy border-gold' : 'border-ivory/20 text-ivory/70'}`}>{l}</button>
+            ))}
+          </div>
+        </FField>
+        {!f.is_online && (
+          <>
+            <FField label="Country" required><CountrySelect value={f.country} onChange={(v) => set('country', v)} /></FField>
+            <FField label="City or town" required><input className={inputCls} maxLength={80} value={f.city} onChange={(e) => set('city', e.target.value)} placeholder="e.g. Kingston" /></FField>
+          </>
+        )}
+        <FField label={f.is_online ? 'Link or details (optional)' : 'Venue or address'}><input className={inputCls} maxLength={200} value={f.location} onChange={(e) => set('location', e.target.value)} placeholder={f.is_online ? 'Online' : 'Venue name'} /></FField>
         <FField label="Hosted by"><input className={inputCls} value={f.host_name} onChange={(e) => set('host_name', e.target.value)} /></FField>
         <FField label="Description"><textarea rows={3} className={inputCls} value={f.description} onChange={(e) => set('description', e.target.value)} /></FField>
         <FField label="Event type">
           <div className="flex gap-2">
             {[['rsvp', 'Free (RSVP)'], ['ticketed', 'Ticketed']].map(([v, l]) => (
               <button key={v} type="button" onClick={() => set('event_type', v)}
-                className={`px-4 py-2 text-sm font-medium rounded-full border ${f.event_type === v ? 'bg-gold text-navy border-gold' : 'border-ivory/20 text-ivory/70'}`}>{l}</button>
+                className={`px-4 min-h-[44px] text-sm font-medium rounded-full border ${f.event_type === v ? 'bg-gold text-navy border-gold' : 'border-ivory/20 text-ivory/70'}`}>{l}</button>
             ))}
           </div>
         </FField>
@@ -1082,8 +1138,8 @@ function EventForm({ user, onClose, onSaved }) {
           </>
         )}
         {error && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs mb-3">{error}</p>}
-        <p className="text-xs text-ivory/50 mb-4">We review every listing before it goes live, usually within a couple of days.</p>
-        <GoldButton type="submit" disabled={saving}>{saving ? <Loader2 className="animate-spin" size={16} /> : 'Submit for review'}</GoldButton>
+        <p className="text-xs text-ivory/50 mb-4">{isAdmin ? 'As an admin your event goes live straight away.' : 'We review every listing before it goes live, usually within a couple of days.'}{(ticketed || isAdmin) ? ' Members in the same city get a reminder a week before.' : ''}</p>
+        <GoldButton type="submit" disabled={saving}>{saving ? <Loader2 className="animate-spin" size={16} /> : isAdmin ? 'Publish event' : 'Submit for review'}</GoldButton>
       </form>
       {showTerms && <LegalModal title="Seller and Organizer Terms" text={SELLER_TERMS_TEXT} onClose={() => setShowTerms(false)} />}
     </FormModal>
@@ -1104,7 +1160,7 @@ function SubmittedNote({ onDismiss }) {
    Events tab
 --------------------------------------------------------- */
 
-function EventsTab({ user, onRequireAuth }) {
+function EventsTab({ user, onRequireAuth, isAdmin }) {
   const [events, setEvents] = useState(null);
   const [rsvpdIds, setRsvpdIds] = useState(new Set());
   const [busyId, setBusyId] = useState(null);
@@ -1148,7 +1204,7 @@ function EventsTab({ user, onRequireAuth }) {
     </div>
   );
   const formModal = showForm && (
-    <EventForm user={user} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); setSubmitted(true); }} />
+    <EventForm user={user} isAdmin={isAdmin} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); if (isAdmin) load(); else setSubmitted(true); }} />
   );
 
   if (events.length === 0) {
@@ -1180,8 +1236,8 @@ function EventsTab({ user, onRequireAuth }) {
                 {date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
               </p>
             )}
-            {ev.location && (
-              <p className="text-xs text-ivory/55 mb-3 flex items-center gap-1"><MapPin size={12} /> {ev.location}</p>
+            {(ev.is_online || ev.location || ev.city) && (
+              <p className="text-xs text-ivory/55 mb-3 flex items-center gap-1"><MapPin size={12} /> {ev.is_online ? `Online${ev.location && ev.location !== 'Online' ? ' - ' + ev.location : ''}` : [ev.location, ev.city, ev.country].filter(Boolean).join(', ')}</p>
             )}
             {ev.description && <p className="text-sm text-ivory/75 mb-4 flex-grow">{ev.description}</p>}
             <div className="flex items-center justify-between mt-auto pt-2">
@@ -1260,7 +1316,7 @@ function SkillswapTab({ user, onRequireAuth, isApproved, status, onApply }) {
           <button
             key={v}
             onClick={() => setView(v)}
-            className={`px-4 py-2 text-sm font-medium rounded-full border ${view === v ? 'bg-gold text-navy border-gold' : 'border-ivory/20 text-ivory/70 hover:border-ivory/40'}`}
+            className={`px-4 min-h-[44px] text-sm font-medium rounded-full border ${view === v ? 'bg-gold text-navy border-gold' : 'border-ivory/20 text-ivory/70 hover:border-ivory/40'}`}
           >
             {v === 'offers' ? 'Skills offered' : 'Skills wanted'}
           </button>
@@ -1294,7 +1350,7 @@ function SkillswapTab({ user, onRequireAuth, isApproved, status, onApply }) {
                 {!isMine && (
                   <button
                     onClick={() => handleMessageClick(item)}
-                    className="flex-shrink-0 flex items-center gap-1 text-xs uppercase tracking-wide text-mint hover:underline"
+                    className="flex-shrink-0 flex items-center gap-1 min-h-[44px] px-2 text-xs uppercase tracking-wide text-mint hover:underline"
                   >
                     <MessageCircle size={13} /> Message
                   </button>
@@ -1508,7 +1564,7 @@ function ProductCard({ p, shopName, onOpen, onOpenShop }) {
         </div>
       </button>
       {shopName && (
-        <button onClick={() => onOpenShop(p.shop_id)} className="px-4 pb-4 text-left text-xs text-ivory/55 hover:text-gold">
+        <button onClick={() => onOpenShop(p.shop_id)} className="px-4 pb-3 min-h-[44px] text-left text-xs text-ivory/55 hover:text-gold">
           by {shopName}
         </button>
       )}
@@ -1616,6 +1672,9 @@ function ProductModal({ product, shop, user, onRequireAuth, onClose, onBuy, onOp
       .eq('product_id', product.id).order('created_at', { ascending: false }).limit(5)
       .then(({ data }) => setReviews(data || []));
   }, [product.id]);
+  useEffect(() => {
+    if (user && product.seller_id !== user.id) supabase.rpc('record_view', { p_type: 'product', p_id: product.id }).then(() => {}, () => {});
+  }, [product.id, product.seller_id, user]);
   return (
     <FormModal title={product.name} onClose={onClose}>
       {product.image_url && <img src={product.image_url} alt={product.name} className="w-full max-h-72 object-cover rounded-2xl mb-4" />}
@@ -1729,12 +1788,24 @@ function OpenShopForm({ user, onClose, onSaved }) {
 }
 
 function ProductForm({ user, shop, onClose, onSaved }) {
-  const [f, setF] = useState({ name: '', description: '', category: SHOP_CATEGORIES[0].name, product_type: 'physical', price: '', currency: 'USD', image_url: '', delivery_notes: '', stock_status: 'in_stock', refund_policy: shop.refund_policy || 'days_14' });
+  const [f, setF] = useState({ name: '', description: '', category: SHOP_CATEGORIES[0].name, product_type: 'physical', price: '', currency: 'USD', delivery_notes: '', stock_status: 'in_stock', refund_policy: shop.refund_policy || 'days_14' });
   const [agreed, setAgreed] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [img, setImg] = useState(null);
+  const [preview, setPreview] = useState('');
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
+  const IMG_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+  function pickImage(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!IMG_EXT[file.type]) { setError('Please choose a JPG, PNG or WebP photo.'); e.target.value = ''; return; }
+    if (file.size > 2 * 1024 * 1024) { setError('The photo must be under 2 MB.'); e.target.value = ''; return; }
+    setError('');
+    if (preview) URL.revokeObjectURL(preview);
+    setImg(file); setPreview(URL.createObjectURL(file));
+  }
 
   async function submit(e) {
     e.preventDefault();
@@ -1742,10 +1813,17 @@ function ProductForm({ user, shop, onClose, onSaved }) {
     if (!f.name.trim() || !(price > 0)) return setError('Please add a name and a price.');
     if (!agreed) return setError('Please agree to the Seller and Organizer Terms.');
     setSaving(true); setError('');
+    let imageUrl = null;
+    if (img) {
+      const path = `${user.id}/${crypto.randomUUID()}.${IMG_EXT[img.type]}`;
+      const { error: upErr } = await supabase.storage.from('product-images').upload(path, img, { contentType: img.type });
+      if (upErr) { setSaving(false); return setError('Could not upload the photo. Please try again.'); }
+      imageUrl = supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl;
+    }
     const { error: err } = await supabase.from('products').insert({
       shop_id: shop.id, seller_id: user.id, name: f.name.trim(), description: f.description.trim() || null,
       category: f.category, product_type: f.product_type, price_cents: price, currency: f.currency,
-      refund_policy: policyValue, price_text: formatMoney(price, f.currency), image_url: f.image_url.trim() || null,
+      refund_policy: policyValue, price_text: formatMoney(price, f.currency), image_url: imageUrl,
       delivery_notes: f.delivery_notes.trim() || null, stock_status: f.stock_status,
       review_status: 'pending', is_active: false, seller_terms_accepted_at: new Date().toISOString(),
     });
@@ -1757,7 +1835,7 @@ function ProductForm({ user, shop, onClose, onSaved }) {
   const policyValue = (REFUND_OPTIONS[f.product_type] || []).includes(f.refund_policy) ? f.refund_policy : REFUND_OPTIONS[f.product_type][0];
   const pill = (k, v, l) => (
     <button key={v} type="button" onClick={() => set(k, v)}
-      className={`px-4 py-2 text-sm font-medium rounded-full border ${f[k] === v ? 'bg-gold text-navy border-gold' : 'border-ivory/20 text-ivory/70'}`}>{l}</button>
+      className={`px-4 min-h-[44px] text-sm font-medium rounded-full border ${f[k] === v ? 'bg-gold text-navy border-gold' : 'border-ivory/20 text-ivory/70'}`}>{l}</button>
   );
 
   return (
@@ -1775,7 +1853,10 @@ function ProductForm({ user, shop, onClose, onSaved }) {
           <div className="col-span-2"><FField label="Price" required><input inputMode="decimal" className={inputCls} value={f.price} onChange={(e) => set('price', e.target.value)} placeholder="25.00" /></FField></div>
           <FField label="Currency"><select className={inputCls} value={f.currency} onChange={(e) => set('currency', e.target.value)}>{CURRENCIES.map((c) => <option key={c}>{c}</option>)}</select></FField>
         </div>
-        <FField label="Image link"><input className={inputCls} value={f.image_url} onChange={(e) => set('image_url', e.target.value)} placeholder="https://" /></FField>
+        <FField label="Product photo (JPG, PNG or WebP, up to 2 MB)">
+          {preview && <img src={preview} alt="Preview" className="w-full max-h-48 object-cover rounded-xl mb-2" />}
+          <input type="file" accept="image/jpeg,image/png,image/webp" onChange={pickImage} className="block w-full text-sm text-ivory/70 file:mr-3 file:min-h-[44px] file:px-4 file:rounded-full file:border-0 file:bg-gold file:text-navy file:font-semibold" />
+        </FField>
         <FField label={f.product_type === 'digital' ? 'How you will deliver it' : 'Delivery or collection details'}>
           <input className={inputCls} value={f.delivery_notes} onChange={(e) => set('delivery_notes', e.target.value)} placeholder={f.product_type === 'digital' ? 'e.g. Emailed within 24 hours' : 'e.g. Courier within Kingston, 3 to 5 days'} />
         </FField>
@@ -2067,7 +2148,7 @@ function ShopTab({ user, onRequireAuth, openPanel, isPaid, onUpgrade, isApproved
       <div className="flex gap-2 mb-6">
         {[['all', 'All'], ['physical', 'Physical'], ['digital', 'Digital']].map(([v, l]) => (
           <button key={v} onClick={() => setType(v)}
-            className={`px-4 py-1.5 text-sm font-medium rounded-full border ${type === v ? 'bg-gold text-navy border-gold' : 'border-ivory/20 text-ivory/70'}`}>{l}</button>
+            className={`px-4 min-h-[44px] text-sm font-medium rounded-full border ${type === v ? 'bg-gold text-navy border-gold' : 'border-ivory/20 text-ivory/70'}`}>{l}</button>
         ))}
       </div>
 
@@ -2089,7 +2170,7 @@ function ShopTab({ user, onRequireAuth, openPanel, isPaid, onUpgrade, isApproved
               {dir && <p className="text-xs text-gold mb-1">Part of {dir.business_name} in the member Directory{dir.category ? ` · ${dir.category}` : ''}</p>}
               {(dir?.parish || shop.country) && <p className="text-xs text-ivory/50 mb-1 flex items-center gap-1"><MapPin size={11} /> {[dir?.parish, shop.country].filter(Boolean).join(', ')}</p>}
               {about && <p className="text-sm text-ivory/75 mb-1">{about}</p>}
-              {dir?.website_url && /^https?:\/\//i.test(dir.website_url) && <a href={dir.website_url} target="_blank" rel="noopener noreferrer" className="text-xs text-mint hover:underline inline-flex items-center gap-1">Website <ExternalLink size={11} /></a>}
+              {dir?.website_url && /^https?:\/\//i.test(dir.website_url) && <a href={dir.website_url} target="_blank" rel="noopener noreferrer" className="text-xs text-mint hover:underline inline-flex items-center gap-1 min-h-[44px]">Website <ExternalLink size={11} /></a>}
             </div>
           </Card>
         );
@@ -2389,22 +2470,953 @@ function OnboardingFlow({ user, status, hasBeta, betaDays, onApplied, onDone }) 
 }
 
 /* ---------------------------------------------------------
+   v9 app shell: dashboard, ads, notifications, drawer, admin tools
+--------------------------------------------------------- */
+
+const SECTION_LINKS = [
+  ['tab:home', 'Dashboard'], ['tab:directory', 'Directory'], ['tab:events', 'Events'], ['tab:skillswap', 'Skills Swap'],
+  ['tab:shop', 'Shop'], ['tab:resources', 'Resources'], ['tab:benefits', 'Benefits'], ['tab:jobs', 'Jobs'], ['tab:messages', 'Messages'],
+];
+
+function timeAgo(iso) {
+  if (!iso) return '';
+  const s = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+  if (s < 60) return 'Just now';
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}d ago`;
+  return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+}
+
+function firstNameOf(profile, user) {
+  const raw = (profile?.full_name || '').trim() || (user?.email ? user.email.split('@')[0] : '');
+  const first = raw.split(/\s+/)[0] || '';
+  return first ? first.charAt(0).toUpperCase() + first.slice(1) : '';
+}
+
+function Avatar({ profile, user, size = 36 }) {
+  const initial = (firstNameOf(profile, user) || '?').charAt(0).toUpperCase();
+  const style = { width: size, height: size };
+  if (profile?.avatar_url && /^https:\/\//.test(profile.avatar_url)) {
+    return <img src={profile.avatar_url} alt="" style={style} className="rounded-full object-cover border border-gold/40" />;
+  }
+  return (
+    <span style={style} className="rounded-full btn-gold text-navy font-semibold flex items-center justify-center" aria-hidden="true">
+      <span style={{ fontSize: size * 0.45 }}>{initial}</span>
+    </span>
+  );
+}
+
+function SampleTag() {
+  return <span className="text-[10px] font-semibold uppercase tracking-wider text-ivory/55 bg-ivory/10 rounded-full px-2 py-0.5">Sample</span>;
+}
+
+/* ---------- Rotating ads ---------- */
+
+const HOUSE_ADS = [
+  { id: 'h1', isHouse: true, title: 'Open your shop', subtitle: 'Sell products and services to the network. We keep it simple.', link_type: 'internal', link_target: 'tab:shop' },
+  { id: 'h2', isHouse: true, title: 'List your business', subtitle: 'Get found in the member Directory by keyword and category.', link_type: 'internal', link_target: 'tab:directory' },
+  { id: 'h3', isHouse: true, title: 'Swap skills with other women', subtitle: 'Offer what you do well. Ask for what you need.', link_type: 'internal', link_target: 'tab:skillswap' },
+  { id: 'h4', isHouse: true, title: 'Free resources, ready to use', subtitle: 'Templates, guides and checklists from the community.', link_type: 'internal', link_target: 'tab:resources' },
+];
+const AD_BG = [
+  'from-emerald/70 via-emerald/30 to-surface',
+  'from-wine/70 via-wine/30 to-surface',
+  'from-gold/35 via-gold/10 to-surface',
+  'from-mint/45 via-emerald/25 to-surface',
+];
+
+function AdCarousel({ ads, onOpen }) {
+  const list = ads.slice(0, 4);
+  const n = list.length;
+  const [i, setI] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [x0, setX0] = useState(null);
+  const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  useEffect(() => {
+    if (n < 2 || paused || reduce) return undefined;
+    const t = setInterval(() => setI((v) => (v + 1) % n), 6000);
+    return () => clearInterval(t);
+  }, [n, paused, reduce]);
+  useEffect(() => { if (i >= n) setI(0); }, [n, i]);
+  if (!n) return null;
+  return (
+    <section aria-roledescription="carousel" aria-label="Featured" className="relative">
+      <div
+        className="overflow-hidden rounded-3xl border border-ivory/[0.08]"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+        onTouchStart={(e) => { setPaused(true); setX0(e.touches[0].clientX); }}
+        onTouchEnd={(e) => {
+          if (x0 !== null) {
+            const dx = e.changedTouches[0].clientX - x0;
+            if (Math.abs(dx) > 40) setI((v) => (dx < 0 ? (v + 1) % n : (v - 1 + n) % n));
+          }
+          setX0(null); setPaused(false);
+        }}
+      >
+        <div className="flex transition-transform duration-500 ease-out" style={{ transform: `translateX(-${i * 100}%)` }}>
+          {list.map((ad, k) => (
+            <button
+              key={ad.id}
+              type="button"
+              onClick={() => onOpen(ad)}
+              aria-hidden={k !== i}
+              tabIndex={k === i ? 0 : -1}
+              className={`relative w-full shrink-0 text-left min-h-[128px] p-5 bg-gradient-to-br ${AD_BG[k % 4]} overflow-hidden active:brightness-95`}
+            >
+              {ad.image_url && /^https:\/\//.test(ad.image_url) && (
+                <>
+                  <img src={ad.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                  <span className="absolute inset-0 bg-gradient-to-r from-navy/90 via-navy/60 to-navy/10" />
+                </>
+              )}
+              <span className="relative block max-w-[78%]">
+                <span className="block font-display text-xl leading-tight text-ivory">{ad.title}</span>
+                {ad.subtitle && <span className="block text-sm text-ivory/80 mt-1.5 line-clamp-2">{ad.subtitle}</span>}
+                <span className="inline-flex items-center gap-1 mt-3 text-xs font-semibold text-gold">
+                  {ad.link_type === 'external' ? 'Visit' : 'Open'} <ChevronRight size={14} />
+                </span>
+              </span>
+              {!ad.isHouse && <span className="absolute top-3 right-3 text-[10px] font-semibold uppercase tracking-wider text-ivory/70 bg-navy/60 rounded-full px-2 py-0.5">Ad</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+      {n > 1 && (
+        <div className="flex justify-center gap-1.5 mt-2.5">
+          {list.map((ad, k) => (
+            <button key={ad.id} type="button" aria-label={`Show item ${k + 1}`} onClick={() => setI(k)} className="p-3 -m-2.5">
+              <span className={`block h-1.5 rounded-full transition-all ${k === i ? 'w-5 bg-gold' : 'w-1.5 bg-ivory/25'}`} />
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ---------- Push permission (friendly prompt, never on first load) ---------- */
+
+function PushPromptModal({ onClose, onDone }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const ios = isIOS();
+  const needsInstall = ios && !isInstalledApp();
+  async function allow() {
+    setBusy(true); setErr('');
+    try { await enablePush(); onDone(); } catch (e) { setErr(e.message || 'Something went wrong.'); setBusy(false); }
+  }
+  return (
+    <FormModal title="Stay in the loop" onClose={onClose}>
+      <div className="flex justify-center mb-4"><span className="w-14 h-14 rounded-full bg-gold/15 text-gold flex items-center justify-center"><BellRing size={26} /></span></div>
+      <p className="text-sm text-ivory/85 mb-3">Get a quick alert on your phone, even when the app is closed, for:</p>
+      <ul className="text-sm text-ivory/75 space-y-1.5 mb-4 list-disc pl-5">
+        <li>Events coming up in 7 days</li>
+        <li>Announcements from The Boardroom</li>
+        <li>When a member views your listing or products</li>
+      </ul>
+      <p className="text-xs text-ivory/55 mb-4">You choose which alerts you get, and you can switch them off at any time in My account, Notifications.</p>
+      {needsInstall ? (
+        <div className="rounded-2xl bg-gold/10 border border-gold/25 px-4 py-3 text-sm text-ivory/85 mb-4">
+          On iPhone, first add the app to your Home Screen: tap the Share button in Safari, choose "Add to Home Screen", then open the app from your Home Screen and come back here.
+        </div>
+      ) : !pushSupported() ? (
+        <div className="rounded-2xl bg-wine/40 border border-wine px-4 py-3 text-sm text-ivory/85 mb-4">This browser cannot receive phone notifications. Try Chrome on Android, or Safari on iPhone with the app added to your Home Screen.</div>
+      ) : null}
+      {err && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs mb-3">{err}</p>}
+      <div className="flex flex-col gap-2">
+        <GoldButton onClick={allow} disabled={busy || needsInstall || !pushSupported()}>{busy ? <Loader2 className="animate-spin" size={16} /> : 'Allow notifications'}</GoldButton>
+        <button type="button" onClick={onClose} className="min-h-[44px] text-sm text-ivory/70 hover:text-ivory">Not now</button>
+      </div>
+    </FormModal>
+  );
+}
+
+/* ---------- Notification settings (also used in My account) ---------- */
+
+const NOTIF_TYPES = [
+  ['profile_views', 'Directory views', 'When someone views your directory listing'],
+  ['product_views', 'Product views', 'A daily count when members view your products'],
+  ['announcements', 'Announcements', 'News and updates from The Boardroom'],
+  ['event_reminders', 'Event reminders', 'A reminder 7 days before an event, in your local time'],
+];
+
+function Toggle({ checked, onChange, label }) {
+  return (
+    <button type="button" role="switch" aria-checked={checked} aria-label={label} onClick={() => onChange(!checked)}
+      className={`relative shrink-0 w-12 h-7 rounded-full transition-colors ${checked ? 'bg-gold' : 'bg-ivory/20'}`}>
+      <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-5' : ''}`} />
+    </button>
+  );
+}
+
+function NotificationSettings({ user }) {
+  const [s, setS] = useState(null);
+  const [pushState, setPushState] = useState('off');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [prompt, setPrompt] = useState(false);
+
+  useEffect(() => {
+    supabase.from('notification_settings').select('*').eq('user_id', user.id).maybeSingle()
+      .then(({ data }) => setS(data || { profile_views: true, product_views: true, announcements: true, event_reminders: true, push_enabled: true, share_views: true }));
+    currentPushState().then(setPushState);
+  }, [user.id]);
+
+  async function save(patch) {
+    const next = { ...s, ...patch };
+    setS(next);
+    const row = { user_id: user.id, profile_views: next.profile_views, product_views: next.product_views, announcements: next.announcements, event_reminders: next.event_reminders, push_enabled: next.push_enabled, share_views: next.share_views, city: (next.city || '').trim().slice(0, 80) || null, country: next.country || null };
+    const { error } = await supabase.from('notification_settings').upsert(row, { onConflict: 'user_id' });
+    if (error) setErr('Could not save that. Please try again.');
+  }
+
+  async function turnOffPush() {
+    setBusy(true);
+    await disablePush();
+    setPushState(await currentPushState());
+    setBusy(false);
+  }
+
+  if (!s) return <Spinner />;
+  return (
+    <div className="space-y-5">
+      {err && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs">{err}</p>}
+      <div className="rounded-2xl bg-navy/50 p-4">
+        <p className="text-sm font-medium text-ivory mb-1">Phone notifications</p>
+        {pushState === 'on' && <p className="text-xs text-ivory/60 mb-3">On for this device. You will get alerts even when the app is closed.</p>}
+        {pushState === 'off' && <p className="text-xs text-ivory/60 mb-3">Off for this device.</p>}
+        {pushState === 'blocked' && <p className="text-xs text-ivory/60 mb-3">Blocked in your phone or browser settings. Allow notifications for this app there, then come back.</p>}
+        {pushState === 'unsupported' && <p className="text-xs text-ivory/60 mb-3">This browser cannot receive phone notifications. On iPhone, add the app to your Home Screen first.</p>}
+        {pushState === 'on' ? (
+          <button type="button" onClick={turnOffPush} disabled={busy} className="min-h-[44px] text-sm text-gold underline underline-offset-2">Turn off on this device</button>
+        ) : pushState !== 'blocked' && pushState !== 'unsupported' ? (
+          <GoldButton onClick={() => setPrompt(true)}><Bell size={14} /> Allow notifications</GoldButton>
+        ) : null}
+      </div>
+      <div className="space-y-1">
+        {NOTIF_TYPES.map(([k, label, hint]) => (
+          <div key={k} className="flex items-center gap-3 min-h-[56px]">
+            <div className="flex-grow"><p className="text-sm text-ivory">{label}</p><p className="text-xs text-ivory/50">{hint}</p></div>
+            <Toggle checked={!!s[k]} onChange={(v) => save({ [k]: v })} label={label} />
+          </div>
+        ))}
+        <div className="flex items-center gap-3 min-h-[56px]">
+          <div className="flex-grow"><p className="text-sm text-ivory">Alerts on my phone</p><p className="text-xs text-ivory/50">Master switch for push alerts. In-app alerts stay on.</p></div>
+          <Toggle checked={!!s.push_enabled} onChange={(v) => save({ push_enabled: v })} label="Alerts on my phone" />
+        </div>
+      </div>
+      <div className="border-t border-ivory/10 pt-4">
+        <p className="text-sm text-ivory mb-1">Where you are</p>
+        <p className="text-xs text-ivory/50 mb-3">Used only to remind you about in-person events in your city. We never show it to other members.</p>
+        <FField label="Country"><CountrySelect value={s.country || ''} onChange={(v) => save({ country: v })} /></FField>
+        <FField label="City or town"><input className={inputCls} maxLength={80} value={s.city || ''} onChange={(e) => setS({ ...s, city: e.target.value })} onBlur={() => save({})} placeholder="e.g. Kingston" /></FField>
+      </div>
+      <div className="border-t border-ivory/10 pt-4">
+        <div className="flex items-center gap-3 min-h-[56px]">
+          <div className="flex-grow"><p className="text-sm text-ivory">Let other members see that I viewed them</p><p className="text-xs text-ivory/50">If off, a member you view only sees that someone viewed their listing, not who.</p></div>
+          <Toggle checked={!!s.share_views} onChange={(v) => save({ share_views: v })} label="Show my name when I view a listing" />
+        </div>
+      </div>
+      {prompt && <PushPromptModal onClose={() => setPrompt(false)} onDone={async () => { setPrompt(false); setPushState(await currentPushState()); }} />}
+    </div>
+  );
+}
+
+/* ---------- Notifications page ---------- */
+
+const NOTIF_ICON = { profile_view: Eye, product_view: Eye, announcement: Megaphone, event_reminder: CalendarClock, system: Bell };
+
+function PushBanner() {
+  const [st, setSt] = useState(null);
+  const [ask, setAsk] = useState(false);
+  useEffect(() => { currentPushState().then(setSt); }, []);
+  if (st !== 'off') return null;
+  return (
+    <div className="mb-4 rounded-2xl border border-gold/30 bg-gold/10 p-4 flex items-center gap-3">
+      <BellRing size={20} className="text-gold shrink-0" />
+      <p className="text-sm text-ivory/85 flex-grow">Get these alerts on your phone, even when the app is closed.</p>
+      <GoldButton onClick={() => setAsk(true)}>Turn on</GoldButton>
+      {ask && <PushPromptModal onClose={() => setAsk(false)} onDone={async () => { setAsk(false); setSt(await currentPushState()); }} />}
+    </div>
+  );
+}
+
+function NotificationsPage({ user, tick, onOpenLink, onChanged, onRequireAuth }) {
+  const [rows, setRows] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(60);
+    setRows(data || []);
+  }, [user]);
+  useEffect(() => { load(); }, [load, tick]);
+
+  if (!user) {
+    return (
+      <div className="text-center py-10">
+        <EmptyState icon={Bell} title="Sign in to see your notifications" body="Event reminders, announcements and listing views will show up here." />
+        <GoldButton onClick={onRequireAuth}><LogIn size={15} /> Sign in</GoldButton>
+      </div>
+    );
+  }
+  if (rows === null) return <Spinner />;
+  const unread = rows.filter((r) => !r.read_at).length;
+
+  async function markAll() {
+    await supabase.rpc('mark_notifications_read', { p_ids: null });
+    setRows(rows.map((r) => ({ ...r, read_at: r.read_at || new Date().toISOString() })));
+    onChanged();
+  }
+  async function open(r) {
+    if (!r.read_at) {
+      await supabase.rpc('mark_notifications_read', { p_ids: [r.id] });
+      setRows((cur) => cur.map((x) => (x.id === r.id ? { ...x, read_at: new Date().toISOString() } : x)));
+      onChanged();
+    }
+    onOpenLink(r.link);
+  }
+
+  return (
+    <div>
+      <PushBanner />
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <button type="button" onClick={markAll} disabled={!unread} className="min-h-[44px] inline-flex items-center gap-1.5 text-sm text-gold disabled:text-ivory/30"><CheckCheck size={16} /> Mark all as read</button>
+        <button type="button" onClick={() => setShowSettings(true)} className="min-h-[44px] inline-flex items-center gap-1.5 text-sm text-ivory/70 hover:text-ivory"><Settings size={16} /> Settings</button>
+      </div>
+      {rows.length === 0 ? (
+        <EmptyState icon={Bell} title="You are all caught up" body="Event reminders, announcements and listing views will show up here." />
+      ) : (
+        <ul className="space-y-2">
+          {rows.map((r) => {
+            const Icon = NOTIF_ICON[r.type] || Bell;
+            return (
+              <li key={r.id}>
+                <button type="button" onClick={() => open(r)} className={`w-full text-left flex items-start gap-3 rounded-2xl border px-4 py-3.5 min-h-[64px] active:scale-[0.99] transition ${r.read_at ? 'bg-surface border-ivory/[0.07]' : 'bg-gold/10 border-gold/30'}`}>
+                  <span className={`mt-0.5 w-10 h-10 shrink-0 rounded-full flex items-center justify-center ${r.read_at ? 'bg-ivory/10 text-ivory/60' : 'bg-gold/20 text-gold'}`}><Icon size={18} /></span>
+                  <span className="flex-grow min-w-0">
+                    <span className={`block text-sm ${r.read_at ? 'text-ivory/85' : 'text-ivory font-semibold'}`}>{r.title}</span>
+                    {r.body && <span className="block text-xs text-ivory/60 mt-0.5">{r.body}</span>}
+                    {r.link && r.link.startsWith('chat:') && <span className="inline-flex items-center gap-1.5 mt-2 min-h-[36px] px-3.5 rounded-full bg-gold text-navy text-xs font-semibold"><MessageCircle size={13} /> Open chat</span>}
+                    <span className="block text-[11px] text-ivory/45 mt-1">{timeAgo(r.created_at)}</span>
+                  </span>
+                  {!r.read_at && <span className="mt-2 w-2.5 h-2.5 rounded-full bg-gold shrink-0" aria-label="Unread" />}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {showSettings && <FormModal title="Notification settings" onClose={() => setShowSettings(false)}><NotificationSettings user={user} /></FormModal>}
+    </div>
+  );
+}
+
+/* ---------- Dashboard ---------- */
+
+function Dashboard({ user, profile, status, isApproved, isPaid, betaActive, betaDaysLeft, onGo, onOpenLink, onRequireAuth, onApply, onUpgrade, onAllowPush, showPushCard, onDismissPushCard }) {
+  const [events, setEvents] = useState(null);
+  const [feed, setFeed] = useState(null);
+  const [ads, setAds] = useState([]);
+  const [banner, setBanner] = useState(null);
+  const [going, setGoing] = useState(new Set());
+  const [busyId, setBusyId] = useState(null);
+
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      const [ev, rs, bn, sk, ad, an] = await Promise.all([
+        supabase.from('events').select('*').eq('is_active', true).eq('review_status', 'approved').gte('event_date', new Date().toISOString()).order('event_date', { ascending: true }).limit(3),
+        supabase.from('resources').select('id,title,category,created_at').eq('is_active', true).eq('review_status', 'approved').eq('resource_type', 'free').order('created_at', { ascending: false }).limit(4),
+        supabase.from('benefits').select('id,company_name,discount_text,created_at').eq('is_active', true).order('created_at', { ascending: false }).limit(4),
+        supabase.from('skill_offers').select('id,skill,created_at,profiles(full_name,business_name)').order('created_at', { ascending: false }).limit(4),
+        supabase.from('ads').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: false }).limit(4),
+        user ? supabase.from('announcements').select('*').eq('show_banner', true).order('created_at', { ascending: false }).limit(1) : Promise.resolve({ data: [] }),
+      ]);
+      if (!live) return;
+      setEvents(ev.data || []);
+      const items = [
+        ...(rs.data || []).map((r) => ({ key: `r${r.id}`, icon: FileText, label: 'Resource', text: r.title, at: r.created_at, link: 'tab:resources' })),
+        ...(bn.data || []).map((b) => ({ key: `b${b.id}`, icon: Gift, label: 'Benefit', text: `${b.company_name}${b.discount_text ? `: ${b.discount_text}` : ''}`, at: b.created_at, link: 'tab:benefits' })),
+        ...(sk.data || []).map((s) => ({ key: `s${s.id}`, icon: Users, label: 'Skills Swap', text: `${s.profiles?.full_name || s.profiles?.business_name || 'A member'} offers ${s.skill}`, at: s.created_at, link: 'tab:skillswap' })),
+      ].sort((a, b) => new Date(b.at) - new Date(a.at));
+      setFeed(items);
+      setAds((ad.data || []).filter((a) => a.is_active !== false));
+      const a0 = (an.data || [])[0];
+      if (a0 && (!a0.banner_until || new Date(a0.banner_until) > new Date())) {
+        let dismissed = false;
+        try { dismissed = localStorage.getItem(`tbja_ann_${a0.id}`) === '1'; } catch { /* ignore */ }
+        if (!dismissed) setBanner(a0);
+      }
+      if (user) {
+        const { data: rv } = await supabase.from('event_rsvps').select('event_id').eq('user_id', user.id);
+        if (live) setGoing(new Set((rv || []).map((x) => x.event_id)));
+      }
+    })();
+    return () => { live = false; };
+  }, [user]);
+
+  async function rsvp(id) {
+    if (!user) return onRequireAuth();
+    setBusyId(id);
+    await supabase.from('event_rsvps').insert({ event_id: id, user_id: user.id });
+    setGoing((g) => new Set([...g, id]));
+    setBusyId(null);
+  }
+
+  function openAd(ad) {
+    if (!ad.isHouse) supabase.rpc('ad_click', { p_id: ad.id }).then(() => {}, () => {});
+    onOpenLink(ad.link_type === 'external' ? ad.link_target : ad.link_target);
+  }
+  function dismissBanner() {
+    try { localStorage.setItem(`tbja_ann_${banner.id}`, '1'); } catch { /* ignore */ }
+    setBanner(null);
+  }
+
+  const name = firstNameOf(profile, user);
+  const tiles = [
+    ['directory', 'Directory', Building2], ['resources', 'Resources', FileText], ['skillswap', 'Skills Swap', Users],
+    ['benefits', 'Benefits', Gift], ['jobs', 'Jobs', Briefcase], ['shop', 'Shop', ShoppingBag],
+  ];
+  const weekAgo = Date.now() - 7 * 86400000;
+  const recent = (feed || []).filter((f) => new Date(f.at).getTime() >= weekAgo);
+  const feedShown = (recent.length ? recent : feed || []).slice(0, 5);
+  const feedTitle = recent.length ? 'New this week' : 'Latest';
+
+  return (
+    <div className="space-y-6">
+      {banner && (
+        <div className="rounded-2xl bg-gold/15 border border-gold/40 px-4 py-3 flex items-start gap-3" role="status">
+          <Megaphone size={18} className="text-gold mt-0.5 shrink-0" />
+          <div className="flex-grow min-w-0">
+            <p className="text-sm font-semibold text-ivory">{banner.title}</p>
+            {banner.body && <p className="text-xs text-ivory/75 mt-0.5">{banner.body}</p>}
+            {banner.link && <button type="button" onClick={() => onOpenLink(banner.link)} className="min-h-[44px] text-xs font-semibold text-gold underline underline-offset-2">Open</button>}
+          </div>
+          <button type="button" onClick={dismissBanner} aria-label="Dismiss announcement" className="w-11 h-11 -mt-2 -mr-2 flex items-center justify-center text-ivory/60"><X size={16} /></button>
+        </div>
+      )}
+
+      <AdCarousel ads={ads.length ? ads : HOUSE_ADS} onOpen={openAd} />
+
+      <section>
+        <h2 className="font-display text-2xl text-ivory">{user ? `Hello${name ? ` ${name}` : ''}` : 'Welcome'}</h2>
+        {!user ? (
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <p className="text-sm text-ivory/65">A network supporting women in business.</p>
+            <GoldButton onClick={onRequireAuth}><LogIn size={15} /> Sign in or join</GoldButton>
+          </div>
+        ) : (
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ivory/65">
+            {status === 'unconfirmed' && (<><span>You have buyer access.</span><button type="button" onClick={onApply} className="min-h-[44px] text-gold font-semibold underline underline-offset-2">Apply to join</button></>)}
+            {status === 'pending' && <span>Your application is being reviewed.</span>}
+            {status === 'declined' && <span>Your application was not approved.</span>}
+            {isApproved && betaActive && <span className="inline-flex items-center gap-1.5 text-gold"><Crown size={14} /> Beta member, {betaDaysLeft} {betaDaysLeft === 1 ? 'day' : 'days'} left</span>}
+            {isApproved && !betaActive && isPaid && <span className="inline-flex items-center gap-1.5 text-gold"><Crown size={14} /> Member</span>}
+            {isApproved && !isPaid && !IS_NATIVE_APP && (<><span>Free member.</span><button type="button" onClick={onUpgrade} className="min-h-[44px] text-gold font-semibold underline underline-offset-2">{profile?.membership_status || profile?.trial_ends_at ? 'Subscribe' : 'Start free trial'}</button></>)}
+          </div>
+        )}
+      </section>
+
+      <section>
+        <div className="flex items-center justify-between mb-2.5">
+          <h3 className="text-xs font-medium tracking-[0.14em] uppercase text-gold/80">Coming up</h3>
+          <button type="button" onClick={() => onGo('events')} className="min-h-[44px] text-xs text-ivory/60 hover:text-ivory inline-flex items-center gap-0.5">All events <ChevronRight size={14} /></button>
+        </div>
+        <Card className="divide-y divide-ivory/[0.07] overflow-hidden">
+          {events === null ? <Spinner /> : events.length === 0 ? (
+            <div className="p-4 flex items-center gap-4 opacity-80">
+              <span className="w-14 shrink-0 rounded-2xl border border-dashed border-ivory/25 py-2 text-center"><span className="block text-[10px] uppercase tracking-wider text-gold">Nov</span><span className="block font-display text-xl text-ivory leading-none">12</span></span>
+              <span className="flex-grow min-w-0">
+                <span className="flex items-center gap-2"><span className="text-sm font-semibold text-ivory">Founders Circle meetup</span><SampleTag /></span>
+                <span className="block text-xs text-ivory/55 mt-0.5">6:00 PM · Kingston</span>
+                <span className="block text-xs text-ivory/55 mt-1">Real events appear here once they are listed. Hosting one? List it from Events.</span>
+              </span>
+            </div>
+          ) : events.map((ev) => {
+            const d = new Date(ev.event_date);
+            const isGoing = going.has(ev.id);
+            return (
+              <div key={ev.id} className="p-4 flex items-center gap-4">
+                <span className="w-14 shrink-0 rounded-2xl bg-gold/10 border border-gold/25 py-2 text-center">
+                  <span className="block text-[10px] uppercase tracking-wider text-gold">{d.toLocaleDateString(undefined, { month: 'short' })}</span>
+                  <span className="block font-display text-xl text-ivory leading-none">{d.getDate()}</span>
+                </span>
+                <span className="flex-grow min-w-0">
+                  <span className="block text-sm font-semibold text-ivory truncate">{ev.title}</span>
+                  <span className="block text-xs text-ivory/60 mt-0.5">{d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}{ev.location ? ` · ${ev.location}` : ''}</span>
+                </span>
+                {ev.event_type === 'ticketed' ? (
+                  <button type="button" onClick={() => onGo('events')} className="min-h-[44px] px-4 rounded-full border border-gold/50 text-gold text-xs font-semibold">Details</button>
+                ) : (
+                  <button type="button" onClick={() => rsvp(ev.id)} disabled={isGoing || busyId === ev.id} className="min-h-[44px] px-4 rounded-full btn-gold text-navy text-xs font-semibold disabled:opacity-60">
+                    {busyId === ev.id ? <Loader2 className="animate-spin" size={14} /> : isGoing ? 'Going' : 'RSVP'}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </Card>
+      </section>
+
+      <section>
+        <div className="grid grid-cols-3 gap-3">
+          {tiles.map(([k, label, Icon]) => (
+            <button key={k} type="button" onClick={() => onGo(k)} className="bg-surface border border-ivory/[0.07] rounded-2xl min-h-[96px] p-3 flex flex-col items-center justify-center gap-2 text-center active:scale-[0.97] hover:border-gold/40 transition">
+              <span className="w-11 h-11 rounded-full bg-gold/10 text-gold flex items-center justify-center"><Icon size={20} /></span>
+              <span className="text-xs font-medium text-ivory">{label}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {showPushCard && (
+        <section className="rounded-3xl bg-gradient-to-br from-emerald/40 to-surface border border-ivory/[0.08] p-4 flex items-center gap-3">
+          <span className="w-11 h-11 shrink-0 rounded-full bg-gold/20 text-gold flex items-center justify-center"><BellRing size={20} /></span>
+          <span className="flex-grow min-w-0">
+            <span className="block text-sm font-semibold text-ivory">Never miss an event</span>
+            <span className="block text-xs text-ivory/65">Get alerts on your phone, even when the app is closed.</span>
+          </span>
+          <span className="flex flex-col items-end">
+            <button type="button" onClick={onAllowPush} className="min-h-[44px] px-4 rounded-full btn-gold text-navy text-xs font-semibold whitespace-nowrap">Turn on</button>
+            <button type="button" onClick={onDismissPushCard} className="min-h-[44px] px-2 text-[11px] text-ivory/50">Not now</button>
+          </span>
+        </section>
+      )}
+
+      <section>
+        <h3 className="text-xs font-medium tracking-[0.14em] uppercase text-gold/80 mb-2.5">{feedTitle}</h3>
+        <Card className="divide-y divide-ivory/[0.07] overflow-hidden">
+          {feed === null ? <Spinner /> : feedShown.length === 0 ? (
+            <div className="p-4 space-y-3 opacity-80">
+              {[[FileText, 'Resource', 'Invoice template for small businesses'], [Gift, 'Benefit', 'Member discount from a partner brand'], [Users, 'Skills Swap', 'A member offers brand photography']].map(([Icon, lbl, txt]) => (
+                <div key={lbl} className="flex items-center gap-3">
+                  <span className="w-9 h-9 shrink-0 rounded-full bg-ivory/10 text-ivory/60 flex items-center justify-center"><Icon size={16} /></span>
+                  <span className="flex-grow min-w-0"><span className="block text-[11px] text-ivory/45">{lbl}</span><span className="block text-sm text-ivory/80 truncate">{txt}</span></span>
+                  <SampleTag />
+                </div>
+              ))}
+              <p className="text-xs text-ivory/55">New resources, benefits and skill swap posts will show here.</p>
+            </div>
+          ) : feedShown.map((f) => (
+            <button key={f.key} type="button" onClick={() => onOpenLink(f.link)} className="w-full text-left p-4 min-h-[64px] flex items-center gap-3 active:bg-ivory/[0.04]">
+              <span className="w-9 h-9 shrink-0 rounded-full bg-gold/10 text-gold flex items-center justify-center"><f.icon size={16} /></span>
+              <span className="flex-grow min-w-0"><span className="block text-[11px] text-ivory/45">{f.label} · {timeAgo(f.at)}</span><span className="block text-sm text-ivory truncate">{f.text}</span></span>
+              <ChevronRight size={16} className="text-ivory/30 shrink-0" />
+            </button>
+          ))}
+        </Card>
+      </section>
+    </div>
+  );
+}
+
+/* ---------- Benefits and Jobs ---------- */
+
+const BENEFIT_REDEMPTION = [['code', 'Promo code'], ['link', 'Website link'], ['show_screen', 'Show this screen']];
+
+function BenefitForm({ onClose, onSaved }) {
+  const [f, setF] = useState({ company_name: '', category: '', description: '', discount_text: '', redemption_type: 'link', code: '', website_url: '' });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  async function submit(e) {
+    e.preventDefault();
+    setBusy(true); setErr('');
+    const row = { ...f, code: f.code || null, website_url: f.website_url || null, category: f.category || null, is_active: true };
+    const { error } = await supabase.from('benefits').insert(row);
+    setBusy(false);
+    if (error) return setErr(error.message);
+    onSaved();
+  }
+  return (
+    <FormModal title="Add a benefit" onClose={onClose}>
+      <form onSubmit={submit}>
+        <FField label="Company" required><input className={inputCls} required value={f.company_name} onChange={set('company_name')} /></FField>
+        <FField label="Offer, short" required><input className={inputCls} required value={f.discount_text} onChange={set('discount_text')} placeholder="15% off your first order" /></FField>
+        <FField label="Details" required><textarea className={inputCls} rows={3} required value={f.description} onChange={set('description')} /></FField>
+        <FField label="Category"><input className={inputCls} value={f.category} onChange={set('category')} /></FField>
+        <FField label="How members use it"><select className={inputCls} value={f.redemption_type} onChange={set('redemption_type')}>{BENEFIT_REDEMPTION.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></FField>
+        <FField label="Promo code (if any)"><input className={inputCls} value={f.code} onChange={set('code')} /></FField>
+        <FField label="Website (https://...)"><input className={inputCls} value={f.website_url} onChange={set('website_url')} /></FField>
+        {err && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs mb-3">{err}</p>}
+        <GoldButton type="submit" disabled={busy}>{busy ? <Loader2 className="animate-spin" size={16} /> : 'Save benefit'}</GoldButton>
+      </form>
+    </FormModal>
+  );
+}
+
+function BenefitsTab({ user, onRequireAuth, isAdmin }) {
+  const [rows, setRows] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [openId, setOpenId] = useState(null);
+  const load = useCallback(() => {
+    // Promo codes are only requested when signed in; the database refuses them to anyone else.
+    const cols = 'id,company_name,category,description,discount_text,redemption_type,website_url,logo_url,is_active,created_at' + (user ? ',code' : '');
+    supabase.from('benefits').select(cols).eq('is_active', true).order('created_at', { ascending: false }).then(({ data }) => setRows(data || []));
+  }, [user]);
+  useEffect(() => { load(); }, [load]);
+  if (rows === null) return <Spinner />;
+  return (
+    <div>
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <p className="text-sm text-ivory/60">Member discounts and perks from partner businesses.</p>
+        {isAdmin && <GoldButton onClick={() => setAdding(true)}><Plus size={15} /> Add</GoldButton>}
+      </div>
+      {rows.length === 0 ? (
+        <EmptyState icon={Gift} title="Benefits are coming soon" body="Partner discounts and perks will appear here." />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {rows.map((b) => (
+            <Card key={b.id} className="p-5 flex flex-col">
+              <SectionLabel>{b.category || 'Benefit'}</SectionLabel>
+              <h3 className="font-semibold text-lg text-ivory">{b.company_name}</h3>
+              {b.discount_text && <p className="text-sm font-semibold text-mint mt-0.5">{b.discount_text}</p>}
+              {b.description && <p className="text-sm text-ivory/75 mt-2 mb-4 flex-grow">{b.description}</p>}
+              <div className="flex flex-wrap items-center gap-3 mt-auto">
+                {(user ? b.code : b.redemption_type === 'code') && (user ? (
+                  <button type="button" onClick={() => setOpenId(openId === b.id ? null : b.id)} className="min-h-[44px] px-4 rounded-full border border-gold/50 text-gold text-xs font-semibold">{openId === b.id ? b.code : 'Show code'}</button>
+                ) : <button type="button" onClick={onRequireAuth} className="min-h-[44px] px-4 rounded-full border border-gold/50 text-gold text-xs font-semibold">Sign in to see code</button>)}
+                {b.website_url && /^https?:\/\//i.test(b.website_url) && <GoldButton href={b.website_url}>Visit <ExternalLink size={13} /></GoldButton>}
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+      {adding && <BenefitForm onClose={() => setAdding(false)} onSaved={() => { setAdding(false); load(); }} />}
+    </div>
+  );
+}
+
+function JobForm({ onClose, onSaved }) {
+  const [f, setF] = useState({ title: '', company: '', location: '', category: '', description: '', external_url: '', source_board: '' });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  async function submit(e) {
+    e.preventDefault();
+    setBusy(true); setErr('');
+    const row = { ...f, category: f.category || null, location: f.location || null, description: f.description || null, source_board: f.source_board || null, is_active: true };
+    const { error } = await supabase.from('jobs').insert(row);
+    setBusy(false);
+    if (error) return setErr(error.message);
+    onSaved();
+  }
+  return (
+    <FormModal title="Add a job" onClose={onClose}>
+      <form onSubmit={submit}>
+        <FField label="Job title" required><input className={inputCls} required value={f.title} onChange={set('title')} /></FField>
+        <FField label="Company" required><input className={inputCls} required value={f.company} onChange={set('company')} /></FField>
+        <FField label="Location"><input className={inputCls} value={f.location} onChange={set('location')} placeholder="Kingston, or Remote" /></FField>
+        <FField label="Category"><input className={inputCls} value={f.category} onChange={set('category')} /></FField>
+        <FField label="Short description"><textarea className={inputCls} rows={3} value={f.description} onChange={set('description')} /></FField>
+        <FField label="Apply link (https://...)" required><input className={inputCls} required value={f.external_url} onChange={set('external_url')} /></FField>
+        {err && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs mb-3">{err}</p>}
+        <GoldButton type="submit" disabled={busy}>{busy ? <Loader2 className="animate-spin" size={16} /> : 'Save job'}</GoldButton>
+      </form>
+    </FormModal>
+  );
+}
+
+function JobsTab({ isAdmin }) {
+  const [rows, setRows] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const load = useCallback(() => {
+    supabase.from('jobs').select('*').eq('is_active', true).order('created_at', { ascending: false }).then(({ data }) => setRows(data || []));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  if (rows === null) return <Spinner />;
+  return (
+    <div>
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <p className="text-sm text-ivory/60">Roles and opportunities. Applying happens on the employer's own site.</p>
+        {isAdmin && <GoldButton onClick={() => setAdding(true)}><Plus size={15} /> Add</GoldButton>}
+      </div>
+      {rows.length === 0 ? (
+        <EmptyState icon={Briefcase} title="Jobs are coming soon" body="Roles and opportunities will appear here." />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {rows.map((j) => (
+            <Card key={j.id} className="p-5 flex flex-col">
+              <SectionLabel>{j.category || 'Job'}</SectionLabel>
+              <h3 className="font-semibold text-lg text-ivory">{j.title}</h3>
+              <p className="text-sm text-ivory/70">{j.company}{j.location ? ` · ${j.location}` : ''}</p>
+              {j.description && <p className="text-sm text-ivory/75 mt-2 mb-4 flex-grow line-clamp-4">{j.description}</p>}
+              {j.external_url && /^https?:\/\//i.test(j.external_url) && <div className="mt-auto"><GoldButton href={j.external_url}>Apply <ExternalLink size={13} /></GoldButton></div>}
+            </Card>
+          ))}
+        </div>
+      )}
+      {adding && <JobForm onClose={() => setAdding(false)} onSaved={() => { setAdding(false); load(); }} />}
+    </div>
+  );
+}
+
+/* ---------- Admin tools: announcements and ads ---------- */
+
+function AdminAnnounceModal({ onClose }) {
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [linkKind, setLinkKind] = useState('none');
+  const [linkTab, setLinkTab] = useState('tab:events');
+  const [linkUrl, setLinkUrl] = useState('');
+  const [banner, setBanner] = useState(true);
+  const [days, setDays] = useState(7);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [sent, setSent] = useState(null);
+
+  async function send(e) {
+    e.preventDefault();
+    setErr('');
+    const link = linkKind === 'tab' ? linkTab : linkKind === 'url' ? linkUrl.trim() : '';
+    if (linkKind === 'url' && !/^https:\/\/.{3,}/.test(link)) return setErr('The web link must start with https://');
+    if (!window.confirm('Send this to every member now? It cannot be unsent.')) return;
+    setBusy(true);
+    const { data, error } = await supabase.rpc('admin_send_announcement', { p_title: title, p_body: body, p_link: link, p_banner: banner, p_banner_days: Number(days) || 7 });
+    setBusy(false);
+    if (error) return setErr(error.message);
+    setSent(data);
+  }
+  return (
+    <FormModal title="Send an announcement" onClose={onClose}>
+      {sent !== null ? (
+        <div>
+          <p className="text-sm text-ivory/85 mb-4">Sent to {sent} {sent === 1 ? 'member' : 'members'}. It shows in their notifications and as a phone alert if they turned those on.</p>
+          <GoldButton onClick={onClose}>Done</GoldButton>
+        </div>
+      ) : (
+        <form onSubmit={send}>
+          <FField label="Headline (80 characters)" required><input className={inputCls} required maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)} /></FField>
+          <FField label="Message (300 characters)"><textarea className={inputCls} rows={3} maxLength={300} value={body} onChange={(e) => setBody(e.target.value)} /></FField>
+          <FField label="Where should it take them?">
+            <select className={inputCls} value={linkKind} onChange={(e) => setLinkKind(e.target.value)}>
+              <option value="none">Nowhere</option><option value="tab">A page in the app</option><option value="url">A website</option>
+            </select>
+          </FField>
+          {linkKind === 'tab' && <FField label="Page"><select className={inputCls} value={linkTab} onChange={(e) => setLinkTab(e.target.value)}>{SECTION_LINKS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></FField>}
+          {linkKind === 'url' && <FField label="Website (https://...)"><input className={inputCls} value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} /></FField>}
+          <label className="flex items-center gap-3 min-h-[44px] text-sm text-ivory/85 mb-2"><input type="checkbox" checked={banner} onChange={(e) => setBanner(e.target.checked)} className="w-5 h-5 accent-[#D4A33A]" /> Also show as a banner on the dashboard</label>
+          {banner && <FField label="Banner stays for (days)"><input type="number" min={1} max={60} className={inputCls} value={days} onChange={(e) => setDays(e.target.value)} /></FField>}
+          {err && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs mb-3">{err}</p>}
+          <GoldButton type="submit" disabled={busy || !title.trim()}>{busy ? <Loader2 className="animate-spin" size={16} /> : <><Send size={14} /> Send to all members</>}</GoldButton>
+        </form>
+      )}
+    </FormModal>
+  );
+}
+
+function AdminAdsModal({ onClose }) {
+  const [adImg, setAdImg] = useState(null);
+  const [rows, setRows] = useState(null);
+  const [f, setF] = useState({ title: '', subtitle: '', image_url: '', link_type: 'external', link_target: '', sort_order: 0 });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const load = useCallback(async () => {
+    const { data } = await supabase.from('ads').select('*').order('is_active', { ascending: false }).order('sort_order', { ascending: true });
+    setRows(data || []);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  async function add(e) {
+    e.preventDefault();
+    setBusy(true); setErr('');
+    let imageUrl = null;
+    if (adImg) {
+      const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[adImg.type];
+      const { data: au } = await supabase.auth.getUser();
+      if (!ext || adImg.size > 2 * 1024 * 1024 || !au?.user) { setBusy(false); return setErr('Please choose a JPG, PNG or WebP picture under 2 MB.'); }
+      const path = `${au.user.id}/${crypto.randomUUID()}.${ext}`;
+      const up = await supabase.storage.from('product-images').upload(path, adImg, { contentType: adImg.type });
+      if (up.error) { setBusy(false); return setErr('Could not upload the picture.'); }
+      imageUrl = supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl;
+    }
+    const row = { title: f.title.trim(), subtitle: f.subtitle.trim() || null, image_url: imageUrl, link_type: f.link_type, link_target: f.link_target.trim(), sort_order: Number(f.sort_order) || 0, is_active: true };
+    const { error } = await supabase.from('ads').insert(row);
+    setBusy(false);
+    if (error) return setErr(/ads_target_ok/.test(error.message) ? 'The link must be a website starting with https://, or a page in the app.' : error.message);
+    setF({ title: '', subtitle: '', image_url: '', link_type: 'external', link_target: '', sort_order: 0 });
+    setAdImg(null);
+    load();
+  }
+  async function toggle(r) {
+    await supabase.from('ads').update({ is_active: !r.is_active }).eq('id', r.id);
+    load();
+  }
+  const activeCount = (rows || []).filter((r) => r.is_active).length;
+  return (
+    <FormModal title="Dashboard ads" onClose={onClose}>
+      <p className="text-xs text-ivory/60 mb-4">The dashboard rotates up to 4 active ads, lowest order number first. With none active, it shows The Boardroom's own promotions. Ads are labelled "Ad" for members.</p>
+      {rows === null ? <Spinner /> : (
+        <div className="space-y-2 mb-6">
+          {rows.length === 0 && <p className="text-sm text-ivory/50">No ads yet.</p>}
+          {rows.map((r) => (
+            <div key={r.id} className={`rounded-2xl bg-navy/50 p-3.5 text-sm ${r.is_active ? '' : 'opacity-60'}`}>
+              <p className="font-semibold text-ivory">{r.title}</p>
+              <p className="text-xs text-ivory/55 break-all">{r.link_type === 'internal' ? `Page: ${r.link_target.replace('tab:', '')}` : r.link_target}</p>
+              <p className="text-xs text-ivory/45 mt-0.5">Order {r.sort_order} · {r.click_count} {r.click_count === 1 ? 'click' : 'clicks'}</p>
+              <button type="button" onClick={() => toggle(r)} className="min-h-[44px] text-xs text-gold underline underline-offset-2">{r.is_active ? 'Switch off' : 'Switch on'}</button>
+            </div>
+          ))}
+        </div>
+      )}
+      <h4 className="text-xs font-medium tracking-[0.14em] uppercase text-gold/80 mb-2">Add an ad</h4>
+      {activeCount >= 4 && <p className="text-xs text-ivory/60 mb-2">You already have 4 active. Switch one off for a new one to show.</p>}
+      <form onSubmit={add}>
+        <FField label="Headline" required><input className={inputCls} required maxLength={70} value={f.title} onChange={set('title')} /></FField>
+        <FField label="One line of detail"><input className={inputCls} maxLength={120} value={f.subtitle} onChange={set('subtitle')} /></FField>
+        <FField label="Picture (optional, JPG, PNG or WebP, under 2 MB)"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setAdImg(e.target.files?.[0] || null)} className="block w-full text-sm text-ivory/70 file:mr-3 file:min-h-[44px] file:px-4 file:rounded-full file:border-0 file:bg-gold file:text-navy file:font-semibold" /></FField>
+        <FField label="Where it goes">
+          <select className={inputCls} value={f.link_type} onChange={(e) => setF({ ...f, link_type: e.target.value, link_target: '' })}>
+            <option value="external">Another website</option><option value="internal">A page in the app</option>
+          </select>
+        </FField>
+        {f.link_type === 'external' ? (
+          <FField label="Website (https://...)" required><input className={inputCls} required value={f.link_target} onChange={set('link_target')} /></FField>
+        ) : (
+          <FField label="Page" required><select className={inputCls} required value={f.link_target} onChange={set('link_target')}><option value="">Choose…</option>{SECTION_LINKS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></FField>
+        )}
+        <FField label="Order (1 shows first)"><input type="number" className={inputCls} value={f.sort_order} onChange={set('sort_order')} /></FField>
+        {err && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs mb-3">{err}</p>}
+        <GoldButton type="submit" disabled={busy}>{busy ? <Loader2 className="animate-spin" size={16} /> : 'Add ad'}</GoldButton>
+      </form>
+    </FormModal>
+  );
+}
+
+function AdminTab() {
+  const [panel, setPanel] = useState(null);
+  const items = [
+    ['members', 'Review applications', 'Approve, decline, or give a 14 day beta trial.', ShieldCheck],
+    ['announce', 'Send an announcement', 'Notify every member, with an optional dashboard banner.', Megaphone],
+    ['ads', 'Dashboard ads', 'Add up to 4 rotating ads that link to a site or a page.', Tag],
+  ];
+  return (
+    <div className="space-y-3">
+      {items.map(([k, t, d, Icon]) => (
+        <button key={k} type="button" onClick={() => setPanel(k)} className="w-full text-left bg-surface border border-ivory/[0.07] rounded-2xl p-4 min-h-[72px] flex items-center gap-4 active:scale-[0.99]">
+          <span className="w-11 h-11 shrink-0 rounded-full bg-gold/10 text-gold flex items-center justify-center"><Icon size={20} /></span>
+          <span className="flex-grow"><span className="block text-sm font-semibold text-ivory">{t}</span><span className="block text-xs text-ivory/55">{d}</span></span>
+          <ChevronRight size={16} className="text-ivory/30" />
+        </button>
+      ))}
+      <p className="text-xs text-ivory/45 pt-2">Benefits and Jobs: open those pages and use the Add button.</p>
+      {panel === 'members' && <AdminMembersModal onClose={() => setPanel(null)} />}
+      {panel === 'announce' && <AdminAnnounceModal onClose={() => setPanel(null)} />}
+      {panel === 'ads' && <AdminAdsModal onClose={() => setPanel(null)} />}
+    </div>
+  );
+}
+
+/* ---------- Slide-out menu ---------- */
+
+function Drawer({ open, onClose, tab, onGo, user, profile, unread, isAdmin, onAccount, onSignOut, onSignIn, onLegal }) {
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+  const items = [
+    ['home', 'Dashboard', Home], ['directory', 'Directory', Building2], ['events', 'Events', Calendar], ['skillswap', 'Skills Swap', Users],
+    ['shop', 'Shop', ShoppingBag], ['resources', 'Resources', FileText], ['benefits', 'Benefits', Gift], ['jobs', 'Jobs', Briefcase],
+    ['messages', 'Messages', Inbox], ['notifications', 'Notifications', Bell],
+  ];
+  if (isAdmin) items.push(['admin', 'Admin', ShieldCheck]);
+  const row = 'w-full flex items-center gap-4 px-5 min-h-[52px] text-left text-[15px]';
+  return (
+    <div className={`fixed inset-0 z-[60] ${open ? '' : 'pointer-events-none'}`} aria-hidden={!open}>
+      <div className={`absolute inset-0 bg-black/60 transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0'}`} onClick={onClose} />
+      <aside role="dialog" aria-label="Menu" className={`absolute inset-y-0 left-0 w-[84%] max-w-[320px] bg-surface border-r border-ivory/10 flex flex-col transition-transform duration-300 ease-out ${open ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="flex items-center justify-between pl-5 pr-2 pt-safe h-16 shrink-0 border-b border-ivory/[0.07]">
+          <Logo className="h-9" />
+          <button type="button" onClick={onClose} aria-label="Close menu" className="w-11 h-11 flex items-center justify-center text-ivory/70"><X size={20} /></button>
+        </div>
+        {user && (
+          <div className="px-5 py-4 flex items-center gap-3 border-b border-ivory/[0.07]">
+            <Avatar profile={profile} user={user} size={44} />
+            <div className="min-w-0"><p className="text-sm font-semibold text-ivory truncate">{firstNameOf(profile, user) || 'Member'}</p><p className="text-xs text-ivory/50 truncate">{user.email}</p></div>
+          </div>
+        )}
+        <nav className="flex-grow overflow-y-auto py-2">
+          {items.map(([k, label, Icon]) => (
+            <button key={k} type="button" onClick={() => onGo(k)} className={`${row} ${tab === k ? 'text-gold bg-gold/10' : 'text-ivory/85 active:bg-ivory/[0.05]'}`}>
+              <Icon size={20} strokeWidth={tab === k ? 2.2 : 1.7} /> <span className="flex-grow">{label}</span>
+              {k === 'notifications' && unread > 0 && <span className="min-w-[22px] h-[22px] px-1.5 rounded-full bg-rose text-white text-[11px] font-semibold flex items-center justify-center">{unread > 99 ? '99+' : unread}</span>}
+            </button>
+          ))}
+        </nav>
+        <div className="border-t border-ivory/[0.07] py-2 pb-safe">
+          {user ? (
+            <>
+              <button type="button" onClick={onAccount} className={`${row} text-ivory/85`}><User size={20} strokeWidth={1.7} /> My account</button>
+              <button type="button" onClick={onSignOut} className={`${row} text-ivory/85`}><LogOut size={20} strokeWidth={1.7} /> Sign out</button>
+            </>
+          ) : (
+            <button type="button" onClick={onSignIn} className={`${row} text-gold`}><LogIn size={20} /> Sign in</button>
+          )}
+          <div className="flex gap-5 px-5 pt-1 text-xs text-ivory/50">
+            <button type="button" onClick={() => onLegal('privacy')} className="min-h-[44px] underline underline-offset-2">Privacy Policy</button>
+            <button type="button" onClick={() => onLegal('terms')} className="min-h-[44px] underline underline-offset-2">Terms of Use</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+/* ---------- Directory listing detail (records a "view") ---------- */
+
+function ListingModal({ biz, user, canMessage, onMessage, onClose }) {
+  useEffect(() => {
+    if (user && biz.user_id !== user.id) supabase.rpc('record_view', { p_type: 'listing', p_id: biz.id }).then(() => {}, () => {});
+  }, [biz.id, biz.user_id, user]);
+  return (
+    <FormModal title={biz.business_name} onClose={onClose}>
+      <SectionLabel>{biz.category}</SectionLabel>
+      <p className="text-xs text-ivory/55 mb-3 flex items-center gap-1"><MapPin size={12} /> {biz.parish}</p>
+      {biz.review_count > 0 && <div className="mb-3 flex items-center gap-2"><StarRating value={biz.avg_rating} count={biz.review_count} /></div>}
+      <p className="text-sm text-ivory/80 whitespace-pre-line mb-4">{biz.description}</p>
+      <div className="flex flex-wrap items-center gap-3">
+        {biz.website_url && (
+          <a href={biz.website_url.startsWith('http') ? biz.website_url : `https://${biz.website_url}`} target="_blank" rel="noopener noreferrer" className="min-h-[44px] inline-flex items-center gap-1 text-sm text-mint hover:underline">Website <ExternalLink size={12} /></a>
+        )}
+        {canMessage && <GoldButton onClick={onMessage}><MessageCircle size={14} /> Message</GoldButton>}
+      </div>
+    </FormModal>
+  );
+}
+
+/* ---------------------------------------------------------
    Root App
 --------------------------------------------------------- */
 
 const TABS = [
-  { key: 'directory', label: 'Directory', icon: Building2, Comp: DirectoryTab },
-  { key: 'events', label: 'Events', icon: Calendar, Comp: EventsTab },
-  { key: 'skillswap', label: 'Skillswap', icon: Users, Comp: SkillswapTab },
-  { key: 'shop', label: 'Shop', icon: ShoppingBag, Comp: ShopTab },
-  { key: 'resources', label: 'Resources', icon: FileText, Comp: ResourcesTab },
-  { key: 'messages', label: 'Messages', icon: Inbox, Comp: MessagesTab },
+  { key: 'home', label: 'Dashboard', short: 'Home', icon: Home },
+  { key: 'directory', label: 'Directory', short: 'Directory', icon: Building2, Comp: DirectoryTab },
+  { key: 'events', label: 'Events', short: 'Events', icon: Calendar, Comp: EventsTab },
+  { key: 'skillswap', label: 'Skills Swap', short: 'Skills', icon: Users, Comp: SkillswapTab },
+  { key: 'shop', label: 'Shop', short: 'Shop', icon: ShoppingBag, Comp: ShopTab },
+  { key: 'resources', label: 'Resources', short: 'Resources', icon: FileText, Comp: ResourcesTab },
+  { key: 'benefits', label: 'Benefits', short: 'Benefits', icon: Gift, Comp: BenefitsTab },
+  { key: 'jobs', label: 'Jobs', short: 'Jobs', icon: Briefcase, Comp: JobsTab },
+  { key: 'messages', label: 'Messages', short: 'Chat', icon: Inbox, Comp: MessagesTab },
+  { key: 'notifications', label: 'Notifications', short: 'Alerts', icon: Bell },
+  { key: 'admin', label: 'Admin', short: 'Admin', icon: ShieldCheck },
 ];
+const TAB_KEYS = TABS.map((t) => t.key);
+const DESKTOP_NAV = ['home', 'directory', 'events', 'skillswap', 'shop', 'resources', 'benefits', 'jobs', 'messages'];
+const BOTTOM_NAV = ['home', 'events', 'shop', 'resources', 'messages'];
 
 export default function App() {
   const [user, setUser] = useState(undefined); // undefined = loading, null = signed out
-  const [profile, setProfile] = useState(null); // { membership_tier, membership_status }
-  const [tab, setTab] = useState('directory');
+  const [profile, setProfile] = useState(null);
+  const [tab, setTab] = useState('home');
   const [showAuth, setShowAuth] = useState(false);
   const [upgrading, setUpgrading] = useState(false);
   const [membershipNotice, setMembershipNotice] = useState(null); // 'success' | 'cancelled' | null
@@ -2412,25 +3424,64 @@ export default function App() {
   const [connectReturn, setConnectReturn] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
   const [rootLegal, setRootLegal] = useState(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
+  const [notifTick, setNotifTick] = useState(0);
+  const [thread, setThread] = useState(null);
+  const [pushPrompt, setPushPrompt] = useState(false);
+  const [pushCard, setPushCard] = useState(false);
+  const tabRef = useRef('home');
+  const pendingLink = useRef(null);
+  useEffect(() => { tabRef.current = tab; }, [tab]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
+    // Keep the same user object when only the token refreshes, so nothing reloads or flickers.
+    const keep = (u) => setUser((cur) => (cur && u && cur.id === u.id ? cur : u));
+    supabase.auth.getSession().then(({ data }) => keep(data.session?.user ?? null));
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      keep(session?.user ?? null);
     });
-    return () => sub.subscription.unsubscribe();
+    // Stay signed in: when the app comes back to the front (phone unlocked, tab reopened), make sure the session is fresh.
+    const wake = () => {
+      if (document.visibilityState !== 'visible') return;
+      supabase.auth.getSession().then(({ data }) => {
+        const exp = data.session?.expires_at;
+        if (data.session && exp && exp * 1000 - Date.now() < 5 * 60 * 1000) supabase.auth.refreshSession();
+      });
+    };
+    document.addEventListener('visibilitychange', wake);
+    window.addEventListener('online', wake);
+    return () => { sub.subscription.unsubscribe(); document.removeEventListener('visibilitychange', wake); window.removeEventListener('online', wake); };
   }, []);
 
   const loadProfile = useCallback(() => {
     if (!user) { setProfile(null); return; }
-    supabase
-      .from('profiles')
-      .select('membership_tier, membership_status, member_status, is_admin, trial_ends_at')
-      .eq('id', user.id)
-      .maybeSingle()
-      .then(({ data }) => setProfile(data || { member_status: 'unconfirmed' }));
+    supabase.rpc('my_profile')
+      .then(({ data, error }) => {
+        const row = Array.isArray(data) ? data[0] : data;
+        // On a network hiccup keep what we already know instead of treating the member as new.
+        setProfile((cur) => row || (error && cur) || { member_status: 'unconfirmed' });
+      });
   }, [user]);
   useEffect(() => { loadProfile(); }, [loadProfile]);
+
+  /* ----- Navigation: Back always returns to the Dashboard ----- */
+  const goTab = useCallback((key) => {
+    if (!TAB_KEYS.includes(key)) return;
+    setDrawerOpen(false);
+    window.scrollTo({ top: 0 });
+    if (key === 'home') {
+      if (window.history.state?.tbja) window.history.back(); else setTab('home');
+      return;
+    }
+    if (tabRef.current === 'home') window.history.pushState({ tbja: key }, ''); else window.history.replaceState({ tbja: key }, '');
+    setTab(key);
+  }, []);
+  useEffect(() => {
+    const onPop = () => { setDrawerOpen(false); setTab('home'); window.scrollTo({ top: 0 }); };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   // Pick up ?membership=success|cancelled after returning from Stripe Checkout
   useEffect(() => {
@@ -2443,24 +3494,28 @@ export default function App() {
     }
     if (orderResult === 'success' || orderResult === 'cancelled') {
       setOrderNotice(orderResult);
-      setTab('shop');
+      goTab('shop');
       params.delete('order');
     }
     const connectResult = params.get('connect');
     if (connectResult === 'return' || connectResult === 'refresh') {
       setConnectReturn(true);
-      setTab('shop');
+      goTab('shop');
       params.delete('connect');
     }
-    if (result || orderResult || connectResult) {
+    const openParam = params.get('open');
+    if (openParam) { params.delete('open'); pendingLink.current = openParam; }
+    if (result || orderResult || connectResult || openParam) {
       const rest = params.toString();
       window.history.replaceState({}, '', window.location.pathname + (rest ? `?${rest}` : ''));
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [flowOpen, setFlowOpen] = useState(false);
   const status = user ? (profile ? (profile.member_status || 'unconfirmed') : null) : 'unconfirmed';
   const isApproved = status === 'approved';
+  const isAdmin = !!profile?.is_admin;
   function handleApply() {
     if (!user) return setShowAuth(true);
     setFlowOpen(true);
@@ -2498,82 +3553,172 @@ export default function App() {
     loadProfile();
   }
 
+  /* ----- Notifications: unread badge, live updates, timezone ----- */
+  const refreshUnread = useCallback(() => {
+    if (!user) { setUnread(0); return; }
+    supabase.from('notifications').select('id', { count: 'exact', head: true }).is('read_at', null)
+      .then(({ count }) => setUnread(count || 0));
+  }, [user]);
+  useEffect(() => {
+    refreshUnread();
+    if (!user) return undefined;
+    const ch = supabase.channel(`notif-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, () => { refreshUnread(); setNotifTick((t) => t + 1); })
+      .subscribe();
+    const onVis = () => { if (document.visibilityState === 'visible') { refreshUnread(); setNotifTick((t) => t + 1); } };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { document.removeEventListener('visibilitychange', onVis); supabase.removeChannel(ch); };
+  }, [user, refreshUnread]);
+
+  // Keep the member's timezone up to date so event reminders arrive at a sensible local time.
+  useEffect(() => {
+    if (!user) return;
+    let tz = null;
+    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { /* ignore */ }
+    if (!tz) return;
+    supabase.from('notification_settings').select('user_id, timezone').eq('user_id', user.id).maybeSingle()
+      .then(({ data }) => {
+        if (!data) supabase.from('notification_settings').insert({ user_id: user.id, timezone: tz }).then(() => {}, () => {});
+        else if (data.timezone !== tz) supabase.from('notification_settings').update({ timezone: tz }).eq('user_id', user.id).then(() => {}, () => {});
+      });
+  }, [user]);
+
+  // Friendly push card: only from the second visit on, never on first load.
+  useEffect(() => {
+    if (!user) { setPushCard(false); return; }
+    let visits = 0; let dismissed = false;
+    try {
+      const k = `tbja_visits_${user.id}`;
+      if (!sessionStorage.getItem(`${k}_s`)) { visits = Number(localStorage.getItem(k) || 0) + 1; localStorage.setItem(k, String(visits)); sessionStorage.setItem(`${k}_s`, '1'); } else visits = Number(localStorage.getItem(k) || 0);
+      dismissed = localStorage.getItem(`tbja_pushno_${user.id}`) === '1';
+    } catch { /* ignore */ }
+    if (dismissed || visits < 2 || IS_NATIVE_APP) return;
+    currentPushState().then((s) => { if (s === 'off' && (pushSupported() && (!isIOS() || isInstalledApp()))) setPushCard(true); });
+  }, [user]);
+
+  /* ----- Links from notifications, ads and push taps ----- */
+  const openChat = useCallback(async (otherId) => {
+    if (!user) return setShowAuth(true);
+    const { data } = await supabase.from('business_directory').select('business_name').eq('user_id', otherId).maybeSingle();
+    setThread({ otherUserId: otherId, otherName: data?.business_name || 'this member' });
+  }, [user]);
+  const openLink = useCallback((link) => {
+    if (!link) return;
+    if (link.startsWith('tab:')) {
+      const k = link.slice(4);
+      if (k === 'admin' && !isAdmin) return;
+      goTab(k);
+    } else if (link.startsWith('chat:')) openChat(link.slice(5));
+    else if (/^https:\/\//.test(link)) window.open(link, '_blank', 'noopener,noreferrer');
+  }, [goTab, openChat, isAdmin]);
+  useEffect(() => {
+    if (pendingLink.current && user && profile) { const l = pendingLink.current; pendingLink.current = null; openLink(l); }
+  }, [user, profile, openLink]);
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return undefined;
+    const onMsg = (e) => { if (e.data?.type === 'open-link') openLink(e.data.link); };
+    navigator.serviceWorker.addEventListener('message', onMsg);
+    return () => navigator.serviceWorker.removeEventListener('message', onMsg);
+  }, [openLink]);
+
   const trialEnd = profile?.trial_ends_at ? new Date(profile.trial_ends_at) : null;
   const betaActive = !!trialEnd && trialEnd > new Date() && profile?.membership_tier !== 'paid';
   const betaDaysLeft = betaActive ? Math.max(1, Math.ceil((trialEnd - new Date()) / 86400000)) : 0;
   const isPaid = profile?.membership_tier === 'paid' || betaActive;
-  const active = TABS.find((t) => t.key === tab);
+  const active = TABS.find((t) => t.key === (tab === 'admin' && !isAdmin ? 'home' : tab)) || TABS[0];
   const ActiveComp = active.Comp;
+  const onHome = active.key === 'home';
+  const common = { user, onRequireAuth: () => setShowAuth(true), openPanel: connectReturn, isPaid, onUpgrade: handleUpgradeClick, isApproved, status, onApply: handleApply, isAdmin };
+  const dismissPushCard = () => { try { localStorage.setItem(`tbja_pushno_${user.id}`, '1'); } catch { /* ignore */ } setPushCard(false); };
+
+  const statusChips = (
+    <>
+      {user && status === 'unconfirmed' && (
+        <button onClick={handleApply} className="flex items-center gap-1.5 text-xs font-semibold text-navy btn-gold rounded-full px-3.5 min-h-[36px] hover:brightness-110">
+          <Crown size={13} /> Apply to join
+        </button>
+      )}
+      {user && status === 'pending' && (
+        <span className="whitespace-nowrap text-xs font-medium text-ivory/70 bg-ivory/[0.07] rounded-full px-3 py-1.5">Application pending</span>
+      )}
+      {user && isApproved && betaActive && (
+        <span className="flex items-center gap-1.5 whitespace-nowrap text-xs font-medium text-gold bg-gold/10 rounded-full px-3 py-1.5">
+          <Crown size={13} /> Beta: {betaDaysLeft} {betaDaysLeft === 1 ? 'day' : 'days'} left
+        </span>
+      )}
+      {user && isApproved && !betaActive && !IS_NATIVE_APP && (
+        profile?.membership_tier === 'paid' ? (
+          <span className="flex items-center gap-1.5 text-xs font-medium text-gold bg-gold/10 rounded-full px-3 py-1.5">
+            <Crown size={13} /> Member
+          </span>
+        ) : (
+          <button
+            onClick={handleUpgradeClick}
+            disabled={upgrading}
+            className="flex items-center gap-1.5 text-xs font-semibold text-navy btn-gold rounded-full px-3.5 min-h-[36px] hover:brightness-110 disabled:opacity-50"
+          >
+            {upgrading ? <Loader2 className="animate-spin" size={13} /> : <Crown size={13} />} {profile?.membership_status || profile?.trial_ends_at ? 'Subscribe' : 'Start free trial'}
+          </button>
+        )
+      )}
+    </>
+  );
 
   return (
     <div className="min-h-screen bg-navy font-sans text-ivory">
-      {/* Header */}
-      <header className="bg-navy/90 backdrop-blur sticky top-0 z-40 border-b border-ivory/[0.07]">
-        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <Logo className="h-11" />
-          <nav className="hidden md:flex items-center gap-1 bg-surface rounded-full p-1 border border-ivory/[0.07]">
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  tab === t.key ? 'bg-gold text-navy' : 'text-ivory/70 hover:text-ivory'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </nav>
-          <div className="flex items-center gap-2">
-            {user && status === 'unconfirmed' && (
-              <button onClick={handleApply} className="flex items-center gap-1.5 text-xs font-semibold text-navy btn-gold rounded-full px-3.5 py-1.5 hover:brightness-110">
-                <Crown size={13} /> Apply to join
-              </button>
-            )}
-            {user && status === 'pending' && (
-              <span className="whitespace-nowrap text-xs font-medium text-ivory/70 bg-ivory/[0.07] rounded-full px-3 py-1.5">Application pending</span>
-            )}
-            {user && isApproved && betaActive && (
-              <span className="flex items-center gap-1.5 whitespace-nowrap text-xs font-medium text-gold bg-gold/10 rounded-full px-3 py-1.5">
-                <Crown size={13} /> Beta: {betaDaysLeft} {betaDaysLeft === 1 ? 'day' : 'days'} left
-              </span>
-            )}
-            {user && isApproved && !betaActive && !IS_NATIVE_APP && (
-              profile?.membership_tier === 'paid' ? (
-                <span className="flex items-center gap-1.5 text-xs font-medium text-gold bg-gold/10 rounded-full px-3 py-1.5">
-                  <Crown size={13} /> Member
-                </span>
-              ) : (
+      {/* App bar */}
+      <header className="bg-navy/90 backdrop-blur sticky top-0 z-40 border-b border-ivory/[0.07] pt-safe">
+        <div className="max-w-5xl mx-auto px-2 md:px-4 h-14 md:h-16 flex items-center gap-1 md:gap-3">
+          <button type="button" onClick={() => setDrawerOpen(true)} aria-label="Open menu" className="xl:hidden w-11 h-11 flex items-center justify-center text-ivory/90 active:bg-ivory/10 rounded-full shrink-0">
+            <Menu size={22} />
+          </button>
+          {!onHome && (
+            <button type="button" onClick={() => goTab('home')} aria-label="Back to dashboard" className="xl:hidden w-11 h-11 flex items-center justify-center text-ivory/90 active:bg-ivory/10 rounded-full shrink-0 -ml-1">
+              <ArrowLeft size={20} />
+            </button>
+          )}
+          <button type="button" onClick={() => goTab('home')} aria-label="Dashboard" className={`shrink-0 min-h-[44px] ${onHome ? '' : 'hidden xl:block'}`}><Logo className="h-9 md:h-11" /></button>
+          {!onHome && <h1 className="xl:hidden font-display text-lg text-ivory truncate">{active.label}</h1>}
+          <nav className="hidden xl:flex items-center gap-1 bg-surface rounded-full p-1 border border-ivory/[0.07] mx-auto">
+            {DESKTOP_NAV.map((k) => {
+              const t = TABS.find((x) => x.key === k);
+              return (
                 <button
-                  onClick={handleUpgradeClick}
-                  disabled={upgrading}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-navy btn-gold rounded-full px-3.5 py-1.5 hover:brightness-110 disabled:opacity-50"
+                  key={k}
+                  onClick={() => goTab(k)}
+                  className={`px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors whitespace-nowrap ${tab === k ? 'bg-gold text-navy' : 'text-ivory/70 hover:text-ivory'}`}
                 >
-                  {upgrading ? <Loader2 className="animate-spin" size={13} /> : <Crown size={13} />} {profile?.membership_status || profile?.trial_ends_at ? 'Subscribe' : 'Start free trial'}
+                  {t.label}
                 </button>
-              )
+              );
+            })}
+          </nav>
+          <div className="flex-grow xl:hidden" />
+          <div className="flex items-center gap-1 md:gap-2 shrink-0">
+            <span className="hidden md:flex items-center gap-2">{statusChips}</span>
+            {user && (
+              <button type="button" onClick={() => goTab('notifications')} aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'} className="relative w-11 h-11 flex items-center justify-center text-ivory/90 active:bg-ivory/10 rounded-full">
+                <Bell size={21} />
+                {unread > 0 && <span className="absolute top-1 right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose text-white text-[10px] font-bold flex items-center justify-center">{unread > 99 ? '99+' : unread}</span>}
+              </button>
             )}
             {user && (
-              <button
-                onClick={() => setShowAccount(true)}
-                aria-label="My account"
-                className="flex items-center gap-1.5 text-sm text-ivory/70 hover:text-ivory px-2 py-1.5"
-              >
-                <User size={16} /> <span className="hidden sm:inline">Account</span>
+              <button type="button" onClick={() => setShowAccount(true)} aria-label="My account" className="w-11 h-11 flex items-center justify-center rounded-full active:opacity-80">
+                <Avatar profile={profile} user={user} size={34} />
               </button>
             )}
-            {user === undefined ? null : user ? (
-              <button
-                onClick={() => supabase.auth.signOut()}
-                aria-label="Sign out"
-                className="flex items-center gap-1.5 text-sm text-ivory/70 hover:text-ivory px-2 py-1.5"
-              >
-                <LogOut size={16} /> <span className="hidden sm:inline">Sign out</span>
+            {user && isAdmin && (
+              <button type="button" onClick={() => goTab('admin')} aria-label="Admin" className="hidden md:flex w-11 h-11 items-center justify-center text-ivory/70 hover:text-gold"><ShieldCheck size={19} /></button>
+            )}
+            {user && (
+              <button type="button" onClick={() => supabase.auth.signOut()} aria-label="Sign out" className="hidden md:flex w-11 h-11 items-center justify-center text-ivory/70 hover:text-ivory">
+                <LogOut size={16} />
               </button>
-            ) : (
+            )}
+            {user === null && (
               <button
                 onClick={() => setShowAuth(true)}
-                className="flex items-center gap-1.5 text-sm font-medium text-ivory border border-ivory/20 rounded-full px-4 py-1.5 hover:border-gold hover:text-gold"
+                className="flex items-center gap-1.5 text-sm font-medium text-ivory border border-ivory/20 rounded-full px-4 min-h-[40px] hover:border-gold hover:text-gold"
               >
                 <LogIn size={15} /> Sign in
               </button>
@@ -2582,14 +3727,16 @@ export default function App() {
         </div>
       </header>
 
-      {/* Beta banner */}
-      <div className="bg-surface/60 border-b border-ivory/[0.07]">
-        <div className="max-w-5xl mx-auto px-4 py-2 text-center text-xs text-ivory/60">
-          Beta: 14 days free, then US$6.99/month. Cancel any time.
+      {/* Price strip, only until someone is a paying or beta member */}
+      {!isPaid && (
+        <div className="bg-surface/60 border-b border-ivory/[0.07]">
+          <div className="max-w-5xl mx-auto px-4 py-1.5 text-center text-[11px] text-ivory/60">
+            Beta: 14 days free, then US$6.99/month. Cancel any time.
+          </div>
         </div>
-      </div>
+      )}
 
-      {user && profile && !isApproved && (
+      {user && profile && !isApproved && !onHome && (
         <div className="bg-gold/10 border-b border-gold/25">
           <div className="max-w-5xl mx-auto px-4 py-2 text-center text-xs text-ivory/85 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
             {status === 'pending' && <span>Your application is being reviewed. Messaging, Skillswap, listing and selling open once you are approved.</span>}
@@ -2597,7 +3744,7 @@ export default function App() {
             {status === 'unconfirmed' && (
               <>
                 <span>You have buyer access: browse the Directory and buy from the Shop. The network is for women in business.</span>
-                <button onClick={handleApply} className="text-gold font-semibold underline underline-offset-2">Apply to join</button>
+                <button onClick={handleApply} className="min-h-[44px] text-gold font-semibold underline underline-offset-2">Apply to join</button>
               </>
             )}
           </div>
@@ -2608,7 +3755,7 @@ export default function App() {
         <div className="bg-gold/20 border-b border-gold/40">
           <div className="max-w-5xl mx-auto px-4 py-2 text-center text-xs text-gold font-medium flex items-center justify-center gap-2">
             <Crown size={13} /> Welcome in. Your membership is active and your free trial has started.
-            <button onClick={() => setMembershipNotice(null)} className="text-gold/70 hover:text-gold"><X size={13} /></button>
+            <button onClick={() => setMembershipNotice(null)} aria-label="Dismiss" className="w-11 h-11 flex items-center justify-center text-gold/70 hover:text-gold"><X size={13} /></button>
           </div>
         </div>
       )}
@@ -2616,7 +3763,7 @@ export default function App() {
         <div className="bg-wine border-b border-wine">
           <div className="max-w-5xl mx-auto px-4 py-2 text-center text-xs text-ivory font-medium flex items-center justify-center gap-2">
             Checkout was cancelled. No payment was taken.
-            <button onClick={() => setMembershipNotice(null)} className="text-ivory/70 hover:text-ivory"><X size={13} /></button>
+            <button onClick={() => setMembershipNotice(null)} aria-label="Dismiss" className="w-11 h-11 flex items-center justify-center text-ivory/70 hover:text-ivory"><X size={13} /></button>
           </div>
         </div>
       )}
@@ -2625,15 +3772,29 @@ export default function App() {
         <div className={orderNotice === 'success' ? 'bg-gold/20 border-b border-gold/40' : 'bg-wine border-b border-wine'}>
           <div className={`max-w-5xl mx-auto px-4 py-2 text-center text-xs font-medium flex items-center justify-center gap-2 ${orderNotice === 'success' ? 'text-gold' : 'text-ivory'}`}>
             {orderNotice === 'success' ? 'Thank you! Your order is confirmed. Check your email for the receipt. The seller will be in touch to arrange delivery.' : 'Checkout was cancelled. No payment was taken.'}
-            <button onClick={() => setOrderNotice(null)}><X size={13} /></button>
+            <button onClick={() => setOrderNotice(null)} aria-label="Dismiss" className="w-11 h-11 flex items-center justify-center"><X size={13} /></button>
           </div>
         </div>
       )}
 
       {/* Main */}
-      <main className="max-w-5xl mx-auto px-4 pt-8 pb-28 md:pb-12">
-        <h1 className="font-display text-3xl text-ivory mb-6">{active.label}</h1>
-        <ActiveComp user={user} onRequireAuth={() => setShowAuth(true)} openPanel={connectReturn} isPaid={isPaid} onUpgrade={handleUpgradeClick} isApproved={isApproved} status={status} onApply={handleApply} />
+      <main className="max-w-5xl mx-auto px-4 pt-5 md:pt-8 pb-28 xl:pb-12 overflow-x-hidden">
+        {!onHome && <h1 className="hidden xl:block font-display text-3xl text-ivory mb-6">{active.label}</h1>}
+        <div key={active.key} className="tbja-page">
+          {active.key === 'home' ? (
+            <Dashboard
+              user={user} profile={profile} status={status} isApproved={isApproved} isPaid={isPaid} betaActive={betaActive} betaDaysLeft={betaDaysLeft}
+              onGo={goTab} onOpenLink={openLink} onRequireAuth={() => setShowAuth(true)} onApply={handleApply} onUpgrade={handleUpgradeClick}
+              showPushCard={pushCard} onAllowPush={() => setPushPrompt(true)} onDismissPushCard={dismissPushCard}
+            />
+          ) : active.key === 'notifications' ? (
+            <NotificationsPage user={user} tick={notifTick} onOpenLink={openLink} onChanged={refreshUnread} onRequireAuth={() => setShowAuth(true)} />
+          ) : active.key === 'admin' ? (
+            <AdminTab />
+          ) : (
+            <ActiveComp {...common} />
+          )}
+        </div>
       </main>
 
       <footer className="hidden md:block border-t border-ivory/[0.07] py-8">
@@ -2643,28 +3804,42 @@ export default function App() {
       </footer>
 
       {/* Mobile bottom navigation */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-navy/95 backdrop-blur border-t border-ivory/[0.08] pb-safe">
-        <div className="grid grid-cols-6">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => { setTab(t.key); window.scrollTo({ top: 0 }); }}
-              className={`flex flex-col items-center gap-1 pt-2.5 pb-2 text-[10px] font-medium transition-colors ${
-                tab === t.key ? 'text-gold' : 'text-ivory/55'
-              }`}
-            >
-              <t.icon size={20} strokeWidth={tab === t.key ? 2 : 1.6} />
-              {t.label}
-            </button>
-          ))}
+      <nav aria-label="Main" className="xl:hidden fixed bottom-0 inset-x-0 z-40 bg-navy/95 backdrop-blur border-t border-ivory/[0.08] pb-safe">
+        <div className="grid grid-cols-5">
+          {BOTTOM_NAV.map((k) => {
+            const t = TABS.find((x) => x.key === k);
+            const on = tab === k;
+            return (
+              <button
+                key={k}
+                onClick={() => goTab(k)}
+                aria-current={on ? 'page' : undefined}
+                className={`relative flex flex-col items-center justify-center gap-0.5 min-h-[58px] text-[11px] font-medium transition-colors ${on ? 'text-gold' : 'text-ivory/55'}`}
+              >
+                {on && <span className="absolute top-0 h-0.5 w-8 rounded-full bg-gold" />}
+                <t.icon size={22} strokeWidth={on ? 2.1 : 1.6} />
+                {t.short}
+              </button>
+            );
+          })}
         </div>
       </nav>
+
+      <Drawer
+        open={drawerOpen} onClose={() => setDrawerOpen(false)} tab={tab} onGo={goTab} user={user} profile={profile} unread={unread} isAdmin={isAdmin}
+        onAccount={() => { setDrawerOpen(false); setShowAccount(true); }}
+        onSignOut={() => { setDrawerOpen(false); supabase.auth.signOut(); }}
+        onSignIn={() => { setDrawerOpen(false); setShowAuth(true); }}
+        onLegal={(k) => { setDrawerOpen(false); setRootLegal(k); }}
+      />
 
       {showAuth && (
         <AuthModal onClose={() => setShowAuth(false)} onAuthed={() => {}} />
       )}
       {flowOpen && user && profile && <OnboardingFlow user={user} status={status} hasBeta={!!profile.trial_ends_at} betaDays={betaDaysLeft} onApplied={loadProfile} onDone={finishOnboarding} />}
       {showAccount && user && <AccountModal user={user} profile={profile} betaActive={betaActive} betaDaysLeft={betaDaysLeft} onSubscribe={() => { setShowAccount(false); handleUpgradeClick(); }} onClose={() => setShowAccount(false)} onLegal={setRootLegal} />}
+      {thread && user && <MessageThreadModal user={user} otherUserId={thread.otherUserId} otherName={thread.otherName} onClose={() => setThread(null)} />}
+      {pushPrompt && <PushPromptModal onClose={() => setPushPrompt(false)} onDone={() => { setPushPrompt(false); setPushCard(false); }} />}
       {rootLegal === 'terms' && <LegalModal title="Terms of Use" text={TERMS_OF_USE_TEXT} onClose={() => setRootLegal(null)} />}
       {rootLegal === 'privacy' && <LegalModal title="Privacy Policy" text={PRIVACY_POLICY_TEXT} onClose={() => setRootLegal(null)} />}
     </div>
