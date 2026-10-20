@@ -1,15 +1,15 @@
 export const COMMISSION_PCT = 10;
 export const PAYMENT_TERMS_DAYS = 30;
 
-export const SELLER_TERMS_TEXT = `# The Boardroom JA: Seller and Organizer Terms
+export const SELLER_TERMS_TEXT = `# The Boardroom: Seller and Organizer Terms
 
-**Last updated: October 17, 2026**
-**Operated by: Baxter Advisory**
+**Last updated: October 20, 2026**
+**Operated by: Women's Boardroom Network Limited, a company registered in Jamaica**
 **Contact: lindsay@baxteradvisory.co.uk**
 
 ## 1. What these terms cover
 
-These terms apply when you list a product, service or ticketed event on The Boardroom JA (the "Platform"). They sit alongside our Terms of Use and Privacy Policy. By submitting a listing and ticking the box to agree, you accept them.
+These terms apply when you list a product, service or ticketed event on The Boardroom (the "Platform"). They sit alongside our Terms of Use and Privacy Policy. By submitting a listing and ticking the box to agree, you accept them.
 
 ## 2. Listing is free for members
 
@@ -17,7 +17,7 @@ It costs nothing to list an event, product or service on the Platform. To open a
 
 ## 3. Our commission
 
-When you make a sale or sell a ticket through the Platform, The Boardroom JA keeps a commission of 10% of the Net Sale Amount.
+When you make a sale or sell a ticket through the Platform, The Boardroom keeps a commission of 10% of the Net Sale Amount.
 
 - **Net Sale Amount** means the price the buyer paid, minus the Stripe transaction fees charged on that payment.
 - Stripe fees are taken first. Our 10% is then calculated on what is left.
@@ -52,7 +52,7 @@ Each payout comes with a statement showing the sale price, Stripe fees, our 10% 
 
 ## 6. How you get paid
 
-Buyers pay The Boardroom JA through Stripe. We then pay you your share, as set out in section 5.
+Buyers pay The Boardroom through Stripe. We then pay you your share, as set out in section 5.
 
 - **Automatic payout through Stripe Connect:** available to sellers whose bank is in the United Kingdom, the European Economic Area, Switzerland, the United States or Canada. You will be asked to complete Stripe's onboarding, including identity checks. Stripe holds your identity and bank details. We do not.
 - **Manual payout:** for sellers whose bank is in a country Stripe does not yet support, including Jamaica. We pay by bank transfer, so it is not automatic. We will email you to collect the details we need to send the payment. Bank and intermediary charges and any currency conversion costs on the transfer are deducted from your payout. We will move sellers to automatic payouts when it becomes available for their country.

@@ -1,0 +1,16 @@
+// Sub-national areas by country. Countries not listed here get a free-text "State, region or city" box.
+export const REGIONS = {
+  'Jamaica': { label: 'Parish', items: ['Kingston', 'St. Andrew', 'St. Thomas', 'Portland', 'St. Mary', 'St. Ann', 'Trelawny', 'St. James', 'Hanover', 'Westmoreland', 'St. Elizabeth', 'Manchester', 'Clarendon', 'St. Catherine'] },
+  'United Kingdom': { label: 'Nation or region', items: ['England: London', 'England: South East', 'England: South West', 'England: East of England', 'England: East Midlands', 'England: West Midlands', 'England: North West', 'England: North East', 'England: Yorkshire and the Humber', 'Scotland', 'Wales', 'Northern Ireland'] },
+  'United States': { label: 'State', items: ['Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware', 'District of Columbia', 'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey', 'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming', 'Puerto Rico'] },
+  'Canada': { label: 'Province or territory', items: ['Alberta', 'British Columbia', 'Manitoba', 'New Brunswick', 'Newfoundland and Labrador', 'Northwest Territories', 'Nova Scotia', 'Nunavut', 'Ontario', 'Prince Edward Island', 'Quebec', 'Saskatchewan', 'Yukon'] },
+  'Ireland': { label: 'County', items: ['Carlow', 'Cavan', 'Clare', 'Cork', 'Donegal', 'Dublin', 'Galway', 'Kerry', 'Kildare', 'Kilkenny', 'Laois', 'Leitrim', 'Limerick', 'Longford', 'Louth', 'Mayo', 'Meath', 'Monaghan', 'Offaly', 'Roscommon', 'Sligo', 'Tipperary', 'Waterford', 'Westmeath', 'Wexford', 'Wicklow'] },
+  'Barbados': { label: 'Parish', items: ['Christ Church', 'St. Andrew', 'St. George', 'St. James', 'St. John', 'St. Joseph', 'St. Lucy', 'St. Michael', 'St. Peter', 'St. Philip', 'St. Thomas'] },
+  'Trinidad and Tobago': { label: 'Region', items: ['Port of Spain', 'San Fernando', 'Arima', 'Chaguanas', 'Point Fortin', 'Diego Martin', 'Tunapuna-Piarco', 'San Juan-Laventille', 'Sangre Grande', 'Couva-Tabaquite-Talparo', 'Penal-Debe', 'Princes Town', 'Siparia', 'Mayaro-Rio Claro', 'Tobago'] },
+  'Bahamas': { label: 'Island', items: ['New Providence', 'Grand Bahama', 'Abaco', 'Eleuthera', 'Exuma', 'Andros', 'Other islands'] },
+  'Guyana': { label: 'Region', items: ['Barima-Waini', 'Pomeroon-Supenaam', 'Essequibo Islands-West Demerara', 'Demerara-Mahaica', 'Mahaica-Berbice', 'East Berbice-Corentyne', 'Cuyuni-Mazaruni', 'Potaro-Siparuni', 'Upper Takutu-Upper Essequibo', 'Upper Demerara-Berbice'] },
+  'Australia': { label: 'State or territory', items: ['Australian Capital Territory', 'New South Wales', 'Northern Territory', 'Queensland', 'South Australia', 'Tasmania', 'Victoria', 'Western Australia'] },
+  'Nigeria': { label: 'State', items: ['Abuja (FCT)', 'Lagos', 'Rivers', 'Kano', 'Oyo', 'Delta', 'Anambra', 'Enugu', 'Ogun', 'Kaduna', 'Other'] },
+};
+
+export const regionLabel = (country) => (REGIONS[country] ? REGIONS[country].label : 'State, region or city');

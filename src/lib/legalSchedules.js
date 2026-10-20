@@ -86,7 +86,7 @@ export const SCHEDULES = {
     consumer: 'Consumer Protection Act, 2005 and Electronic Transactions Act, 2006.',
     points: [
       'Goods must be of satisfactory quality and match their description.',
-      'On The Boardroom JA, physical items bought by buyers in Jamaica carry at least a 7-day returns window unless an exclusion applies (for example made-to-order, perishable or opened digital items).',
+      'On The Boardroom, physical items bought by buyers in Jamaica carry at least a 7-day returns window unless an exclusion applies (for example made-to-order, perishable or opened digital items).',
       'Your contract is formed electronically when you tick the boxes and pay, as recognised by the Electronic Transactions Act.',
     ],
     data: 'Data Protection Act, 2020. Regulator: Office of the Information Commissioner.',
