@@ -141,11 +141,24 @@ function AuthModal({ onClose, onAuthed }) {
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [agreedPrivacy, setAgreedPrivacy] = useState(false);
   const [showLegal, setShowLegal] = useState(null); // 'terms' | 'privacy' | null
+  const [resetSent, setResetSent] = useState(false);
+
+  async function sendReset(e) {
+    e.preventDefault();
+    setError('');
+    if (!email.trim()) return setError('Please enter your email address.');
+    setLoading(true);
+    // The reply is always the same, so nobody can use this box to find out who has an account.
+    await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin });
+    setLoading(false);
+    setResetSent(true);
+  }
 
   const needsConsent = mode === 'signup' && (!agreedTerms || !agreedPrivacy);
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (mode === 'forgot') return sendReset(e);
     setError('');
     if (needsConsent) {
       setError('Please agree to the Terms of Use and Privacy Policy to continue.');
@@ -166,7 +179,11 @@ function AuthModal({ onClose, onAuthed }) {
       onAuthed();
       onClose();
     } catch (err) {
-      setError(err.message || 'Something went wrong. Please try again.');
+      setError(/invalid login/i.test(err.message || '')
+        ? 'That email and password do not match. Check them and try again, or choose "Forgot your password?" below.'
+        : /not confirmed/i.test(err.message || '')
+          ? 'Please confirm your email first. We sent you a link when you signed up.'
+          : (err.message || 'Something went wrong. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -180,11 +197,17 @@ function AuthModal({ onClose, onAuthed }) {
         </button>
         <Logo className="h-10 mb-6" />
         <h2 className="font-display text-xl text-ivory mb-1">
-          {mode === 'signup' ? 'Create your account' : 'Welcome back'}
+          {mode === 'signup' ? 'Create your account' : mode === 'forgot' ? 'Reset your password' : 'Welcome back'}
         </h2>
         <p className="text-sm text-ivory/60 mb-6">
-          Beta. Join the room: 14 days of full membership free, then US$5.99/month. Cancel any time.
+          {mode === 'forgot' ? 'Enter your email and we will send you a link to set a new password.' : 'Beta. Join the room: 14 days of full membership free, then US$5.99/month. Cancel any time.'}
         </p>
+        {mode === 'forgot' && resetSent ? (
+          <div>
+            <p className="text-sm text-ivory/85 mb-4">If an account exists for that email, we have sent a link to set a new password. Check your inbox and your spam folder.</p>
+            <GoldButton onClick={() => { setMode('signin'); setResetSent(false); }}>Back to sign in</GoldButton>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-3">
           {mode === 'signup' && (
             <input
@@ -198,12 +221,14 @@ function AuthModal({ onClose, onAuthed }) {
             onChange={(e) => setEmail(e.target.value)}
             className={inputCls}
           />
-          <input
-            type="password" required placeholder="Password" value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            minLength={8}
-            className={inputCls}
-          />
+          {mode !== 'forgot' && (
+            <input
+              type="password" required placeholder="Password" value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              minLength={8}
+              className={inputCls}
+            />
+          )}
 
           {mode === 'signup' && (
             <div className="space-y-2 pt-1">
@@ -226,14 +251,19 @@ function AuthModal({ onClose, onAuthed }) {
 
           {error && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs">{error}</p>}
           <GoldButton type="submit" disabled={loading || needsConsent}>
-            {loading ? <Loader2 className="animate-spin" size={16} /> : (mode === 'signup' ? 'Sign up' : 'Sign in')}
+            {loading ? <Loader2 className="animate-spin" size={16} /> : (mode === 'signup' ? 'Sign up' : mode === 'forgot' ? 'Send reset link' : 'Sign in')}
           </GoldButton>
         </form>
+        )}
+        {mode === 'signin' && (
+          <button type="button" onClick={() => { setMode('forgot'); setError(''); setResetSent(false); }} className="mt-4 mr-4 min-h-[44px] text-xs text-mint hover:underline font-sans">Forgot your password?</button>
+        )}
         <button
-          onClick={() => setMode(mode === 'signup' ? 'signin' : 'signup')}
-          className="mt-4 text-xs text-mint hover:underline font-sans"
+          type="button"
+          onClick={() => { setMode(mode === 'signup' || mode === 'forgot' ? 'signin' : 'signup'); setError(''); setResetSent(false); }}
+          className="mt-4 min-h-[44px] text-xs text-mint hover:underline font-sans"
         >
-          {mode === 'signup' ? 'Already a member? Sign in' : "New here? Create an account"}
+          {mode === 'signup' || mode === 'forgot' ? 'Back to sign in' : "New here? Create an account"}
         </button>
       </div>
 
@@ -244,6 +274,42 @@ function AuthModal({ onClose, onAuthed }) {
         <LegalModal title="Privacy Policy" text={PRIVACY_POLICY_TEXT} onClose={() => setShowLegal(null)} />
       )}
     </div>
+  );
+}
+
+function SetPasswordModal({ onDone }) {
+  const [pw, setPw] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [ok, setOk] = useState(false);
+  async function save(e) {
+    e.preventDefault();
+    setErr('');
+    if (pw.length < 8) return setErr('Please use at least 8 characters.');
+    if (pw !== pw2) return setErr('The two passwords do not match.');
+    setBusy(true);
+    const { error } = await supabase.auth.updateUser({ password: pw });
+    setBusy(false);
+    if (error) return setErr(error.message || 'Could not save your new password. Please try again.');
+    setOk(true);
+  }
+  return (
+    <FormModal title="Set a new password" onClose={onDone}>
+      {ok ? (
+        <div>
+          <p className="text-sm text-ivory/85 mb-4">Your password has been changed. You are signed in.</p>
+          <GoldButton onClick={onDone}>Continue</GoldButton>
+        </div>
+      ) : (
+        <form onSubmit={save} className="space-y-3">
+          <input type="password" required minLength={8} placeholder="New password" value={pw} onChange={(e) => setPw(e.target.value)} className={inputCls} autoComplete="new-password" />
+          <input type="password" required minLength={8} placeholder="Repeat new password" value={pw2} onChange={(e) => setPw2(e.target.value)} className={inputCls} autoComplete="new-password" />
+          {err && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs">{err}</p>}
+          <GoldButton type="submit" disabled={busy}>{busy ? <Loader2 className="animate-spin" size={16} /> : 'Save new password'}</GoldButton>
+        </form>
+      )}
+    </FormModal>
   );
 }
 
@@ -726,7 +792,7 @@ function ListBusinessForm({ user, existing, onClose, onSaved, onboarding = false
           <h2 className="font-display text-xl text-ivory">{onboarding ? 'Welcome. Tell us about your business' : existing ? 'Edit your listing' : 'List your business'}</h2>
           <button onClick={onClose} className="text-ivory/60 hover:text-ivory" aria-label="Close"><X size={18} /></button>
         </div>
-        {onboarding && <p className="text-xs text-ivory/60 mb-4">{pendingReview ? 'Our team reviews every application. Only the fields marked "Shown publicly" will appear to other people, and only once you are approved.' : 'This sets up your Directory listing. Only the fields marked "Shown publicly" appear to other people.'}</p>}
+        {onboarding && <p className="text-xs text-ivory/60 mb-4">This sets up your Directory listing. Only the fields marked "Shown publicly" appear to other people.</p>}
         <form onSubmit={handleSubmit} className={onboarding ? '' : 'mt-3'}>
           <div className="mb-3">{lbl('Business name', true, PUBLIC)}<input className={inputCls} value={form.business_name} onChange={(e) => update('business_name', e.target.value)} /></div>
           <div className="mb-3">{lbl('Industry / category', true, PUBLIC)}
@@ -2470,9 +2536,9 @@ function OnboardingFlow({ user, status, hasBeta, betaDays, onApplied, onDone }) 
         </ul>
         <label className="flex items-start gap-2.5 text-sm text-ivory/85 mb-4 cursor-pointer">
           <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-0.5 accent-[#D4A33A]" />
-          <span>I confirm that I am a woman and that what I tell you is true. I understand that every application is reviewed and that my access can be removed if I do not meet this rule.</span>
+          <span>I confirm that I am a woman and that what I tell you is true. I understand that my access can be removed if I do not meet this rule.</span>
         </label>
-        <GoldButton onClick={apply} disabled={!agree || busy}>{busy ? <Loader2 className="animate-spin" size={16} /> : 'Apply to join'}</GoldButton>
+        <GoldButton onClick={apply} disabled={!agree || busy}>{busy ? <Loader2 className="animate-spin" size={16} /> : 'Join now'}</GoldButton>
         {err && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs mt-3">{err}</p>}
         <button onClick={onDone} className="block mt-4 text-sm text-ivory/60 hover:text-ivory underline underline-offset-2">I am just here to browse and buy</button>
       </FormModal>
@@ -3501,8 +3567,9 @@ export default function App() {
     // Keep the same user object when only the token refreshes, so nothing reloads or flickers.
     const keep = (u) => setUser((cur) => (cur && u && cur.id === u.id ? cur : u));
     supabase.auth.getSession().then(({ data }) => keep(data.session?.user ?? null));
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       keep(session?.user ?? null);
+      if (event === 'PASSWORD_RECOVERY') setRecovery(true);
     });
     // Stay signed in: when the app comes back to the front (phone unlocked, tab reopened), make sure the session is fresh.
     const wake = () => {
@@ -3576,6 +3643,7 @@ export default function App() {
   }, []);
 
   const [flowOpen, setFlowOpen] = useState(false);
+  const [recovery, setRecovery] = useState(false);
   const status = user ? (profile ? (profile.member_status || 'unconfirmed') : null) : 'unconfirmed';
   const isApproved = status === 'approved';
   const isAdmin = !!profile?.is_admin;
@@ -3899,6 +3967,7 @@ export default function App() {
       {showAuth && (
         <AuthModal onClose={() => setShowAuth(false)} onAuthed={() => {}} />
       )}
+      {recovery && user && <SetPasswordModal onDone={() => setRecovery(false)} />}
       {flowOpen && user && profile && <OnboardingFlow user={user} status={status} hasBeta={!!profile.trial_ends_at} betaDays={betaDaysLeft} onApplied={loadProfile} onDone={finishOnboarding} />}
       {showAccount && user && <AccountModal user={user} profile={profile} betaActive={betaActive} betaDaysLeft={betaDaysLeft} onSubscribe={() => { setShowAccount(false); handleUpgradeClick(); }} onClose={() => setShowAccount(false)} onLegal={setRootLegal} />}
       {thread && user && <MessageThreadModal user={user} otherUserId={thread.otherUserId} otherName={thread.otherName} onClose={() => setThread(null)} />}
