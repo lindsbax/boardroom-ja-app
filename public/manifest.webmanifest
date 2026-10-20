@@ -1,7 +1,7 @@
 {
-  "name": "The Boardroom JA",
-  "short_name": "Boardroom JA",
-  "description": "A network supporting women in business and entrepreneurship.",
+  "name": "The Boardroom",
+  "short_name": "Boardroom",
+  "description": "A network for women in business and entrepreneurship.",
   "id": "/",
   "start_url": "/",
   "scope": "/",

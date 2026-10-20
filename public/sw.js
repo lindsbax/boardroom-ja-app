@@ -1,11 +1,11 @@
-/* The Boardroom JA service worker: phone notifications only. It does not cache pages, so updates always arrive. */
+/* The Boardroom service worker: phone notifications only. It does not cache pages, so updates always arrive. */
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 
 self.addEventListener('push', (event) => {
   let d = {};
-  try { d = event.data ? event.data.json() : {}; } catch { d = { title: 'The Boardroom JA', body: event.data ? event.data.text() : '' }; }
-  const title = String(d.title || 'The Boardroom JA').slice(0, 120);
+  try { d = event.data ? event.data.json() : {}; } catch { d = { title: 'The Boardroom', body: event.data ? event.data.text() : '' }; }
+  const title = String(d.title || 'The Boardroom').slice(0, 120);
   event.waitUntil(self.registration.showNotification(title, {
     body: String(d.body || '').slice(0, 200),
     icon: '/icon-192.png',
