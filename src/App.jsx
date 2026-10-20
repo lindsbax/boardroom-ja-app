@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase';
 import { pushSupported, isIOS, isInstalledApp, currentPushState, enablePush, disablePush } from './lib/push';
 import { PRIVACY_POLICY_TEXT, TERMS_OF_USE_TEXT } from './lib/legalText';
 import { SELLER_TERMS_TEXT, COMMISSION_PCT, PAYMENT_TERMS_DAYS } from './lib/sellerTerms';
+import { REGIONS, regionLabel } from './lib/places';
 import { COUNTRIES, REFUND_POLICIES, REFUND_OPTIONS, STATUTORY_NOTE, scheduleFor, needsDigitalWaiver, payoutRoute, MIN_PAYOUT } from './lib/legalSchedules';
 import {
   Calendar, Users, ShoppingBag, FileText, LogIn, LogOut,
@@ -71,7 +72,7 @@ function LegalModal({ title, text, onClose }) {
 
 function Logo({ className = 'h-8' }) {
   return (
-    <img src="/logo.png" alt="The Boardroom JA" className={`${className} w-auto object-contain`} />
+    <img src="/logo.png" alt="The Boardroom" className={`${className} w-auto object-contain`} />
   );
 }
 
@@ -182,7 +183,7 @@ function AuthModal({ onClose, onAuthed }) {
           {mode === 'signup' ? 'Create your account' : 'Welcome back'}
         </h2>
         <p className="text-sm text-ivory/60 mb-6">
-          Beta. Join the room: 14 days of full membership free, then US$6.99/month. Cancel any time.
+          Beta. Join the room: 14 days of full membership free, then US$5.99/month. Cancel any time.
         </p>
         <form onSubmit={handleSubmit} className="space-y-3">
           {mode === 'signup' && (
@@ -258,7 +259,7 @@ async function startMembershipCheckout() {
   return msg || 'Could not start checkout. Please try again.';
 }
 
-const SOFT_GOLD_NOTE = 'Card required. Free for 14 days, then US$6.99 per month. Cancel any time.';
+const SOFT_GOLD_NOTE = 'Card required. Free for 14 days, then US$5.99 per month. Cancel any time.';
 
 // Inside the iPhone/Android store app, only physical goods are sold. Digital products and the paid membership are bought on the website.
 const IS_NATIVE_APP = typeof window !== 'undefined' && !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
@@ -325,7 +326,7 @@ function MembersOnlyNotice({ status, onApply, what }) {
     ? 'Your application is being reviewed. This opens as soon as you are approved. Meanwhile you can browse the Directory and buy from the Shop.'
     : status === 'declined'
       ? `Your application was not approved, so this part of the network is not available to you. You can still browse the Directory and buy from the Shop. Questions? Email ${CONTACT_EMAIL}.`
-      : 'The Boardroom JA is a network for women in business. Everyone can browse the Directory and buy from the Shop. Apply to join to unlock this.';
+      : 'The Boardroom is a network for women in business. Everyone can browse the Directory and buy from the Shop. Apply to join to unlock this.';
   return (
     <div className="text-center max-w-md mx-auto">
       <EmptyState icon={Lock} title={`${what} is for members`} body={text} />
@@ -468,7 +469,7 @@ function AccountModal({ user, profile, betaActive, betaDaysLeft, onSubscribe, on
             <p className="text-xs text-ivory/50 mb-0.5">Membership</p>
             <p className="text-sm text-ivory mb-2">{planLabel}</p>
             {profile?.member_status === 'approved' && (betaActive || betaEnded) && !IS_NATIVE_APP && (
-              <button onClick={onSubscribe} className="text-sm text-gold underline underline-offset-2 block mb-1">Subscribe, US$6.99 per month</button>
+              <button onClick={onSubscribe} className="text-sm text-gold underline underline-offset-2 block mb-1">Subscribe, US$5.99 per month</button>
             )}
             {profile?.membership_status && profile.membership_status !== 'canceled' && (
               <button onClick={manageBilling} disabled={billBusy} className="text-sm text-gold underline underline-offset-2">{billBusy ? 'Opening…' : 'Manage or cancel membership'}</button>
@@ -631,6 +632,7 @@ function ListBusinessForm({ user, existing, onClose, onSaved, onboarding = false
     business_name: existing?.business_name || '',
     category: existing?.category || '',
     description: existing?.description || '',
+    country: existing?.country || '',
     parish: existing?.parish || '',
     website_url: existing?.website_url || '',
     is_registered: '',
@@ -669,9 +671,10 @@ function ListBusinessForm({ user, existing, onClose, onSaved, onboarding = false
 
   async function handleSubmit(e) {
     e.preventDefault();
-    const need = ['business_name', 'category', 'description', 'parish', 'contact_email', 'is_registered'];
+    const need = ['business_name', 'category', 'description', 'country', 'contact_email', 'is_registered'];
     if (need.some((f) => !form[f]?.trim())) return setError('Please fill in all required fields.');
-    if (form.is_registered !== 'no' && !form.registered_countries.trim()) return setError('Please tell us which country or countries the business is registered in.');
+    if (form.is_registered !== 'no' && !form.registered_countries.trim()) return setError('Please choose which country or countries the business is registered in.');
+    if (REGIONS[form.country] && !form.parish.trim()) return setError(`Please choose your ${regionLabel(form.country).toLowerCase()}.`);
     setSaving(true);
     setError('');
     const now = new Date().toISOString();
@@ -686,18 +689,21 @@ function ListBusinessForm({ user, existing, onClose, onSaved, onboarding = false
     if (e1) { setSaving(false); return setError(e1.message); }
     if (form.full_name.trim()) await supabase.from('profiles').update({ full_name: form.full_name.trim() }).eq('id', user.id);
     // Contact details are kept private, so the public listing row never carries them.
-    const { error: e2 } = await supabase.from('business_directory').upsert({
-      user_id: user.id,
+    // Contact details stay private, so they are never written to (or read back from) the public listing row.
+    const listing = {
       business_name: form.business_name.trim(),
       category: form.category.trim(),
       description: form.description.trim(),
+      country: form.country.trim(),
       parish: form.parish.trim(),
-      website_url: form.website_url.trim() || null,
-      contact_email: '',
-      phone: null,
+      website_url: (() => { const w = form.website_url.trim(); return !w ? null : /^https?:\/\//i.test(w) ? w : `https://${w}`; })(),
       is_active: consent,
       directory_consent_at: consent ? (existing?.directory_consent_at || now) : null,
-    }, { onConflict: 'user_id' });
+    };
+    const { data: row } = await supabase.from('business_directory').select('id').eq('user_id', user.id).maybeSingle();
+    const { error: e2 } = row
+      ? await supabase.from('business_directory').update(listing).eq('user_id', user.id)
+      : await supabase.from('business_directory').insert({ user_id: user.id, ...listing });
     setSaving(false);
     if (e2) return setError(e2.message);
     onSaved();
@@ -730,7 +736,24 @@ function ListBusinessForm({ user, existing, onClose, onSaved, onboarding = false
             </select>
           </div>
           <div className="mb-3">{lbl('Description', true, PUBLIC)}<textarea rows={3} className={inputCls} value={form.description} onChange={(e) => update('description', e.target.value)} /></div>
-          <div className="mb-3">{lbl('Parish', true, PUBLIC)}<input className={inputCls} value={form.parish} onChange={(e) => update('parish', e.target.value)} /></div>
+          <div className="mb-3">{lbl('Country', true, PUBLIC)}
+            <select className={inputCls} value={form.country} onChange={(e) => setForm((f) => ({ ...f, country: e.target.value, parish: '' }))}>
+              <option value="">Choose a country…</option>
+              {COUNTRIES.map((c) => <option key={c[0]} value={c[1]}>{c[1]}</option>)}
+            </select>
+          </div>
+          {form.country && (
+            <div className="mb-3">{lbl(regionLabel(form.country), !!REGIONS[form.country], PUBLIC)}
+              {REGIONS[form.country] ? (
+                <select className={inputCls} value={form.parish} onChange={(e) => update('parish', e.target.value)}>
+                  <option value="">Choose…</option>
+                  {(form.parish && !REGIONS[form.country].items.includes(form.parish) ? [form.parish, ...REGIONS[form.country].items] : REGIONS[form.country].items).map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+              ) : (
+                <input className={inputCls} maxLength={100} value={form.parish} onChange={(e) => update('parish', e.target.value)} placeholder="Optional" />
+              )}
+            </div>
+          )}
           <div className="mb-5">{lbl('Website', false, PUBLIC)}<input className={inputCls} value={form.website_url} onChange={(e) => update('website_url', e.target.value)} placeholder="https://" /></div>
 
           <div className="rounded-2xl bg-navy/40 border border-ivory/10 p-4 mb-4">
@@ -744,7 +767,30 @@ function ListBusinessForm({ user, existing, onClose, onSaved, onboarding = false
               </select>
             </div>
             {form.is_registered && form.is_registered !== 'no' && (
-              <div className="mb-3">{lbl('Which country or countries is it registered in?', true, PRIVATE)}<input className={inputCls} value={form.registered_countries} onChange={(e) => update('registered_countries', e.target.value)} placeholder="e.g. Jamaica, United Kingdom" /></div>
+              <div className="mb-3">{lbl('Which country or countries is it registered in?', true, PRIVATE)}
+                {(() => {
+                  const picked = form.registered_countries.split(',').map((x) => x.trim()).filter(Boolean);
+                  const set = (arr) => update('registered_countries', arr.join(', '));
+                  return (
+                    <>
+                      {picked.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          {picked.map((c) => (
+                            <span key={c} className="inline-flex items-center gap-1.5 rounded-full bg-gold/15 text-ivory text-xs pl-3 pr-1.5 py-1">
+                              {c}
+                              <button type="button" aria-label={`Remove ${c}`} onClick={() => set(picked.filter((x) => x !== c))} className="w-6 h-6 rounded-full hover:bg-ivory/10 inline-flex items-center justify-center"><X size={12} /></button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <select className={inputCls} value="" onChange={(e) => { const v = e.target.value; if (v && !picked.includes(v)) set([...picked, v]); }}>
+                        <option value="">{picked.length ? 'Add another country…' : 'Choose a country…'}</option>
+                        {COUNTRIES.filter((c) => !picked.includes(c[1])).map((c) => <option key={c[0]} value={c[1]}>{c[1]}</option>)}
+                      </select>
+                    </>
+                  );
+                })()}
+              </div>
             )}
             <div className="mb-3">{lbl('Your name', false, PRIVATE)}<input className={inputCls} value={form.full_name} onChange={(e) => update('full_name', e.target.value)} /></div>
             <div className="mb-3">{lbl('Contact email', true, PRIVATE)}<input type="email" className={inputCls} value={form.contact_email} onChange={(e) => update('contact_email', e.target.value)} /></div>
@@ -753,7 +799,7 @@ function ListBusinessForm({ user, existing, onClose, onSaved, onboarding = false
 
           <label className="flex items-start gap-2.5 text-xs text-ivory/80 mb-4 cursor-pointer">
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 accent-[#D4A33A]" />
-            <span>Show my business in the member Directory (business name, category, description, parish and website only). You can change this any time. Other members can message you if you have an active membership.</span>
+            <span>Show my business in the member Directory (business name, category, description, country, region and website only). You can change this any time. Other members can message you if you have an active membership.</span>
           </label>
 
           {error && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs mb-3">{error}</p>}
@@ -782,7 +828,7 @@ function DirectoryTab({ user, onRequireAuth, isPaid, onUpgrade, isApproved, stat
   const load = useCallback(async () => {
     const { data } = await supabase
       .from('business_directory')
-      .select('id, user_id, business_name, category, description, parish, website_url, logo_url, is_active, created_at')
+      .select('id, user_id, business_name, category, description, country, parish, website_url, logo_url, is_active, created_at')
       .eq('is_active', true)
       .order('business_name', { ascending: true });
     let blockedIds = new Set();
@@ -826,7 +872,7 @@ function DirectoryTab({ user, onRequireAuth, isPaid, onUpgrade, isApproved, stat
   const filtered = (businesses || []).filter((b) => {
     if (cat && b.category !== cat) return false;
     const q = query.trim().toLowerCase();
-    return !q || [b.business_name, b.category, b.parish, b.description].some((v) => v && v.toLowerCase().includes(q));
+    return !q || [b.business_name, b.category, b.parish, b.country, b.description].some((v) => v && v.toLowerCase().includes(q));
   });
 
   return (
@@ -837,7 +883,7 @@ function DirectoryTab({ user, onRequireAuth, isPaid, onUpgrade, isApproved, stat
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by keyword, name or parish…"
+            placeholder="Search by keyword, name or place…"
             className={inputCls + ' pl-9'}
           />
         </div>
@@ -874,7 +920,7 @@ function DirectoryTab({ user, onRequireAuth, isPaid, onUpgrade, isApproved, stat
             <Card key={b.id} className="p-5 flex flex-col">
               <SectionLabel>{b.category}</SectionLabel>
               <h3 className="font-sans font-semibold text-lg tracking-tight text-ivory mb-1"><button type="button" onClick={() => setDetail(b)} className="text-left hover:text-gold min-h-[44px]">{b.business_name}</button></h3>
-              <p className="text-xs text-ivory/55 mb-2 flex items-center gap-1"><MapPin size={12} /> {b.parish}</p>
+              <p className="text-xs text-ivory/55 mb-2 flex items-center gap-1"><MapPin size={12} /> {[b.parish, b.country].filter(Boolean).join(', ')}</p>
               {b.review_count > 0 && <div className="mb-2 flex items-center gap-2"><StarRating value={b.avg_rating} count={b.review_count} /><span className="text-[11px] text-ivory/45">verified shop buyers</span></div>}
               <p className="text-sm text-ivory/75 mb-4 flex-grow line-clamp-4">{b.description}</p>
               <div className="flex items-center gap-2 mt-auto pt-2">
@@ -1011,7 +1057,7 @@ function FeeNotice({ onReadTerms, paid = true }) {
     <div className="rounded-2xl bg-gold/10 border border-gold/25 px-4 py-3 text-sm text-ivory/85">
       <p className="font-semibold text-gold mb-1">Free to list</p>
       <p>
-        Listing costs nothing{paid ? `. If you sell tickets or products, The Boardroom JA keeps ${COMMISSION_PCT}% of the sale after Stripe transaction fees, and you are paid within ${PAYMENT_TERMS_DAYS} days.` : ', and free events stay free.'}
+        Listing costs nothing{paid ? `. If you sell tickets or products, The Boardroom keeps ${COMMISSION_PCT}% of the sale after Stripe transaction fees, and you are paid within ${PAYMENT_TERMS_DAYS} days.` : ', and free events stay free.'}
       </p>
       {paid && (
         <button type="button" onClick={onReadTerms} className="mt-2 text-xs font-medium text-gold underline underline-offset-2">
@@ -1073,6 +1119,7 @@ function EventForm({ user, isAdmin, onClose, onSaved }) {
     e.preventDefault();
     if (!f.title.trim() || !f.event_date) return setError('Please add a title and a date.');
     if (ticketed && (!f.price_text.trim() || !f.ticket_checkout_url.trim())) return setError('Ticketed events need a price and a ticket link.');
+    if (ticketed && !/^https:\/\/[^\s]+\.[^\s]+$/i.test(f.ticket_checkout_url.trim())) return setError('The ticket link must start with https://');
     if (ticketed && !agreed) return setError('Please agree to the Seller and Organizer Terms.');
     if (!f.is_online && (!f.city.trim() || !f.country)) return setError('Please add the city and country, or mark the event as online.');
     setSaving(true); setError('');
@@ -1103,7 +1150,7 @@ function EventForm({ user, isAdmin, onClose, onSaved }) {
     <FormModal title="List an event" onClose={onClose}>
       <div className="mb-4"><FeeNotice paid={ticketed} onReadTerms={() => setShowTerms(true)} /></div>
       <form onSubmit={submit}>
-        <FField label="Event name" required><input className={inputCls} value={f.title} onChange={(e) => set('title', e.target.value)} /></FField>
+        <FField label="Event name" required><input className={inputCls} maxLength={200} value={f.title} onChange={(e) => set('title', e.target.value)} /></FField>
         <FField label="Date and time" required><input type="datetime-local" className={inputCls} value={f.event_date} onChange={(e) => set('event_date', e.target.value)} /></FField>
         <FField label="Where is it?">
           <div className="flex gap-2">
@@ -1120,8 +1167,8 @@ function EventForm({ user, isAdmin, onClose, onSaved }) {
           </>
         )}
         <FField label={f.is_online ? 'Link or details (optional)' : 'Venue or address'}><input className={inputCls} maxLength={200} value={f.location} onChange={(e) => set('location', e.target.value)} placeholder={f.is_online ? 'Online' : 'Venue name'} /></FField>
-        <FField label="Hosted by"><input className={inputCls} value={f.host_name} onChange={(e) => set('host_name', e.target.value)} /></FField>
-        <FField label="Description"><textarea rows={3} className={inputCls} value={f.description} onChange={(e) => set('description', e.target.value)} /></FField>
+        <FField label="Hosted by"><input className={inputCls} maxLength={150} value={f.host_name} onChange={(e) => set('host_name', e.target.value)} /></FField>
+        <FField label="Description"><textarea rows={3} className={inputCls} maxLength={3000} value={f.description} onChange={(e) => set('description', e.target.value)} /></FField>
         <FField label="Event type">
           <div className="flex gap-2">
             {[['rsvp', 'Free (RSVP)'], ['ticketed', 'Ticketed']].map(([v, l]) => (
@@ -1160,7 +1207,7 @@ function SubmittedNote({ onDismiss }) {
    Events tab
 --------------------------------------------------------- */
 
-function EventsTab({ user, onRequireAuth, isAdmin }) {
+function EventsTab({ user, onRequireAuth, isAdmin, isApproved, status, onApply }) {
   const [events, setEvents] = useState(null);
   const [rsvpdIds, setRsvpdIds] = useState(new Set());
   const [busyId, setBusyId] = useState(null);
@@ -1200,7 +1247,7 @@ function EventsTab({ user, onRequireAuth, isAdmin }) {
   const listBar = (
     <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <p className="text-sm text-ivory/60">Hosting something? It's free to list your event.</p>
-      <GoldButton onClick={() => (user ? setShowForm(true) : onRequireAuth())}><Plus size={15} /> List an event</GoldButton>
+      <GoldButton onClick={() => (!user ? onRequireAuth() : (isApproved || isAdmin) ? setShowForm(true) : status === 'unconfirmed' ? onApply() : null)}><Plus size={15} /> {!user || isApproved || isAdmin ? 'List an event' : status === 'pending' ? 'Application pending' : status === 'declined' ? 'Not available' : 'Apply to join to list an event'}</GoldButton>
     </div>
   );
   const formModal = showForm && (
@@ -1250,7 +1297,7 @@ function EventsTab({ user, onRequireAuth, isAdmin }) {
                 </GoldButton>
               )}
             </div>
-            {ev.event_type === 'ticketed' && <p className="text-[11px] text-ivory/45 mt-2">Tickets are sold by the organiser on their own page. The Boardroom JA does not take this payment, so check the details before you pay.</p>}
+            {ev.event_type === 'ticketed' && <p className="text-[11px] text-ivory/45 mt-2">Tickets are sold by the organiser on their own page. The Boardroom does not take this payment, so check the details before you pay.</p>}
             <div className="mt-2"><ReportLink user={user} onRequireAuth={onRequireAuth} type="event" id={ev.id} /></div>
           </Card>
         );
@@ -1648,7 +1695,7 @@ function BuyModal({ user, product, shop, onClose }) {
         </div>
         <label className="flex items-start gap-2.5 text-xs text-ivory/80 mb-4 cursor-pointer">
           <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 accent-[#D4A33A]" />
-          <span>I agree that The Boardroom JA shares my details with {shop?.name} so they can deliver my order. See our{' '}
+          <span>I agree that The Boardroom shares my details with {shop?.name} so they can deliver my order. See our{' '}
             <button type="button" onClick={() => setLegal('privacy')} className="text-gold underline underline-offset-2">Privacy Policy</button> and{' '}
             <button type="button" onClick={() => setLegal('terms')} className="text-gold underline underline-offset-2">Terms</button>.
           </span>
@@ -1731,13 +1778,22 @@ function PayoutNotice({ country }) {
 }
 
 function OpenShopForm({ user, onClose, onSaved }) {
-  const [f, setF] = useState({ name: '', description: '', country: '', order_email: user.email || '', logo_url: '', refund_policy: 'days_14', payout_country: '' });
+  const [f, setF] = useState({ name: '', description: '', country: '', order_email: user.email || '', refund_policy: 'days_14', payout_country: '' });
   const [payAck, setPayAck] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [logo, setLogo] = useState(null);
+  const LOGO_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
+  function pickLogo(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!LOGO_EXT[file.type]) { setError('Please choose a JPG, PNG or WebP image.'); e.target.value = ''; return; }
+    if (file.size > 2 * 1024 * 1024) { setError('The logo must be under 2 MB.'); e.target.value = ''; return; }
+    setError(''); setLogo(file);
+  }
 
   async function submit(e) {
     e.preventDefault();
@@ -1746,10 +1802,17 @@ function OpenShopForm({ user, onClose, onSaved }) {
     if (payoutRoute(f.payout_country) === 'manual' && !payAck) return setError('Please confirm you understand payouts to your country are manual.');
     if (!agreed) return setError('Please agree to the Seller and Organizer Terms.');
     setSaving(true); setError('');
+    let logoUrl = null;
+    if (logo) {
+      const path = `${user.id}/${crypto.randomUUID()}.${LOGO_EXT[logo.type]}`;
+      const { error: upErr } = await supabase.storage.from('product-images').upload(path, logo, { contentType: logo.type });
+      if (upErr) { setSaving(false); return setError('Could not upload the logo. Please try again.'); }
+      logoUrl = supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl;
+    }
     const slug = `${slugify(f.name)}-${Math.random().toString(36).slice(2, 6)}`;
     const { error: err } = await supabase.from('shops').insert({
       owner_id: user.id, name: f.name.trim(), slug, description: f.description.trim() || null,
-      country: f.country, order_email: f.order_email.trim(), logo_url: f.logo_url.trim() || null, refund_policy: f.refund_policy,
+      country: f.country, order_email: f.order_email.trim(), logo_url: logoUrl, refund_policy: f.refund_policy,
       payout_country: f.payout_country, payout_notice_ack_at: payoutRoute(f.payout_country) === 'manual' ? new Date().toISOString() : null,
       seller_terms_accepted_at: new Date().toISOString(),
     });
@@ -1762,13 +1825,13 @@ function OpenShopForm({ user, onClose, onSaved }) {
     <FormModal title="Open your shop" onClose={onClose}>
       <div className="mb-4"><FeeNotice onReadTerms={() => setShowTerms(true)} /></div>
       <form onSubmit={submit}>
-        <FField label="Shop name" required><input className={inputCls} value={f.name} onChange={(e) => set('name', e.target.value)} /></FField>
-        <FField label="About your shop"><textarea rows={3} className={inputCls} value={f.description} onChange={(e) => set('description', e.target.value)} /></FField>
+        <FField label="Shop name" required><input className={inputCls} maxLength={150} value={f.name} onChange={(e) => set('name', e.target.value)} /></FField>
+        <FField label="About your shop"><textarea rows={3} className={inputCls} maxLength={3000} value={f.description} onChange={(e) => set('description', e.target.value)} /></FField>
         <FField label="Country you sell from" required><CountrySelect value={f.country} onChange={(v) => set('country', v)} /></FField>
         <RightsPanel country={f.country} heading="Laws that apply to you as a seller" />
         <FField label="Your default refund policy"><RefundPicker type="physical" value={f.refund_policy} onChange={(v) => set('refund_policy', v)} /></FField>
         <FField label="Email for order notifications" required><input type="email" className={inputCls} value={f.order_email} onChange={(e) => set('order_email', e.target.value)} /></FField>
-        <FField label="Logo link"><input className={inputCls} value={f.logo_url} onChange={(e) => set('logo_url', e.target.value)} placeholder="https://" /></FField>
+        <FField label="Shop logo (optional)"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={pickLogo} className="block w-full text-sm text-ivory/70 file:mr-3 file:min-h-[44px] file:px-4 file:rounded-full file:border-0 file:bg-gold file:text-navy file:font-semibold" /><p className="text-[11px] text-ivory/45 mt-1">JPG, PNG or WebP, under 2 MB.</p></FField>
         <FField label="Country where your bank account is" required><CountrySelect value={f.payout_country} onChange={(v) => { set('payout_country', v); setPayAck(false); }} /></FField>
         {f.payout_country && <div className="mb-4"><PayoutNotice country={f.payout_country} /></div>}
         {f.payout_country && payoutRoute(f.payout_country) === 'manual' && (
@@ -1841,8 +1904,8 @@ function ProductForm({ user, shop, onClose, onSaved }) {
   return (
     <FormModal title="Add a product" onClose={onClose}>
       <form onSubmit={submit}>
-        <FField label="Name" required><input className={inputCls} value={f.name} onChange={(e) => set('name', e.target.value)} /></FField>
-        <FField label="Description"><textarea rows={3} className={inputCls} value={f.description} onChange={(e) => set('description', e.target.value)} /></FField>
+        <FField label="Name" required><input className={inputCls} maxLength={150} value={f.name} onChange={(e) => set('name', e.target.value)} /></FField>
+        <FField label="Description"><textarea rows={3} className={inputCls} maxLength={3000} value={f.description} onChange={(e) => set('description', e.target.value)} /></FField>
         <FField label="Type"><div className="flex gap-2">{pill('product_type', 'physical', 'Physical')}{pill('product_type', 'digital', 'Digital')}</div></FField>
         <FField label="Category">
           <select className={inputCls} value={f.category} onChange={(e) => set('category', e.target.value)}>
@@ -2095,7 +2158,7 @@ function ShopTab({ user, onRequireAuth, openPanel, isPaid, onUpgrade, isApproved
     setShops(s || []);
     const owners = (s || []).map((x) => x.owner_id);
     if (owners.length) {
-      const { data: d } = await supabase.from('business_directory').select('user_id, business_name, category, description, parish, website_url, logo_url').in('user_id', owners).eq('is_active', true);
+      const { data: d } = await supabase.from('business_directory').select('user_id, business_name, category, description, country, parish, website_url, logo_url').in('user_id', owners).eq('is_active', true);
       setDirByOwner(Object.fromEntries((d || []).map((x) => [x.user_id, x])));
     }
   }, []);
@@ -2168,7 +2231,7 @@ function ShopTab({ user, onRequireAuth, openPanel, isPaid, onUpgrade, isApproved
             <div>
               <h2 className="font-display text-xl text-ivory">{shop.name}</h2>
               {dir && <p className="text-xs text-gold mb-1">Part of {dir.business_name} in the member Directory{dir.category ? ` · ${dir.category}` : ''}</p>}
-              {(dir?.parish || shop.country) && <p className="text-xs text-ivory/50 mb-1 flex items-center gap-1"><MapPin size={11} /> {[dir?.parish, shop.country].filter(Boolean).join(', ')}</p>}
+              {(dir?.parish || shop.country) && <p className="text-xs text-ivory/50 mb-1 flex items-center gap-1"><MapPin size={11} /> {[dir?.parish, dir?.country || shop.country].filter(Boolean).join(', ')}</p>}
               {about && <p className="text-sm text-ivory/75 mb-1">{about}</p>}
               {dir?.website_url && /^https?:\/\//i.test(dir.website_url) && <a href={dir.website_url} target="_blank" rel="noopener noreferrer" className="text-xs text-mint hover:underline inline-flex items-center gap-1 min-h-[44px]">Website <ExternalLink size={11} /></a>}
             </div>
@@ -2285,8 +2348,8 @@ function ResourceUploadForm({ user, onClose, onSaved }) {
     <FormModal title="Share a free resource" onClose={onClose}>
       <p className="text-sm text-ivory/70 mb-4">Share a template, guide or checklist with other members. It's free for everyone to download, and we review it before it goes live.</p>
       <form onSubmit={submit}>
-        <FField label="Title" required><input className={inputCls} value={f.title} onChange={(e) => set('title', e.target.value)} /></FField>
-        <FField label="Description"><textarea rows={3} className={inputCls} value={f.description} onChange={(e) => set('description', e.target.value)} /></FField>
+        <FField label="Title" required><input className={inputCls} maxLength={200} value={f.title} onChange={(e) => set('title', e.target.value)} /></FField>
+        <FField label="Description"><textarea rows={3} className={inputCls} maxLength={3000} value={f.description} onChange={(e) => set('description', e.target.value)} /></FField>
         <FField label="Category"><select className={inputCls} value={f.category} onChange={(e) => set('category', e.target.value)}>{RESOURCE_CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></FField>
         <FField label="Shared by (name or business)"><input className={inputCls} value={f.uploader} onChange={(e) => set('uploader', e.target.value)} /></FField>
         <FField label="File (PDF, Word, Excel, PowerPoint, PNG or JPG, up to 20 MB)" required>
@@ -2399,8 +2462,8 @@ function OnboardingFlow({ user, status, hasBeta, betaDays, onApplied, onDone }) 
 
   if (step === 'eligibility') {
     return (
-      <FormModal title="Welcome to The Boardroom JA" onClose={onDone}>
-        <p className="text-sm text-ivory/85 mb-3">The Boardroom JA is a network for women in business. It is open to women, including trans women.</p>
+      <FormModal title="Welcome to The Boardroom" onClose={onDone}>
+        <p className="text-sm text-ivory/85 mb-3">The Boardroom is a network for women in business. It is open to women, including trans women.</p>
         <ul className="text-sm text-ivory/80 space-y-1.5 mb-4 list-disc pl-5">
           <li>Everyone can browse the Directory and buy from the Shop.</li>
           <li>Members can message each other, use Skillswap, list their business, share resources and, with a paid membership, open a shop.</li>
@@ -2438,7 +2501,7 @@ function OnboardingFlow({ user, status, hasBeta, betaDays, onApplied, onDone }) 
           <li>Other members can message you from the Directory</li>
           <li>You can open a shop and list your products</li>
         </ul>
-        <p className="text-xs text-ivory/60 mb-4">Thank you for helping us find bugs. Please tell us about anything that looks wrong. When the trial ends you drop back to free access unless you subscribe (US$6.99 per month, cancel any time). You will never be charged unless you choose to subscribe.</p>
+        <p className="text-xs text-ivory/60 mb-4">Thank you for helping us find bugs. Please tell us about anything that looks wrong. When the trial ends you drop back to free access unless you subscribe (US$5.99 per month, cancel any time). You will never be charged unless you choose to subscribe.</p>
         <GoldButton onClick={onDone}>Start exploring</GoldButton>
       </FormModal>
     );
@@ -2589,7 +2652,7 @@ function AdCarousel({ ads, onOpen }) {
       {n > 1 && (
         <div className="flex justify-center gap-1.5 mt-2.5">
           {list.map((ad, k) => (
-            <button key={ad.id} type="button" aria-label={`Show item ${k + 1}`} onClick={() => setI(k)} className="p-3 -m-2.5">
+            <button key={ad.id} type="button" aria-label={`Show item ${k + 1}`} onClick={() => setI(k)} className="p-[18px] -m-[18px]">
               <span className={`block h-1.5 rounded-full transition-all ${k === i ? 'w-5 bg-gold' : 'w-1.5 bg-ivory/25'}`} />
             </button>
           ))}
@@ -3112,7 +3175,7 @@ function JobForm({ onClose, onSaved }) {
       <form onSubmit={submit}>
         <FField label="Job title" required><input className={inputCls} required value={f.title} onChange={set('title')} /></FField>
         <FField label="Company" required><input className={inputCls} required value={f.company} onChange={set('company')} /></FField>
-        <FField label="Location"><input className={inputCls} value={f.location} onChange={set('location')} placeholder="Kingston, or Remote" /></FField>
+        <FField label="Location"><input className={inputCls} maxLength={200} value={f.location} onChange={set('location')} placeholder="Kingston, or Remote" /></FField>
         <FField label="Category"><input className={inputCls} value={f.category} onChange={set('category')} /></FField>
         <FField label="Short description"><textarea className={inputCls} rows={3} value={f.description} onChange={set('description')} /></FField>
         <FField label="Apply link (https://...)" required><input className={inputCls} required value={f.external_url} onChange={set('external_url')} /></FField>
@@ -3379,7 +3442,7 @@ function ListingModal({ biz, user, canMessage, onMessage, onClose }) {
   return (
     <FormModal title={biz.business_name} onClose={onClose}>
       <SectionLabel>{biz.category}</SectionLabel>
-      <p className="text-xs text-ivory/55 mb-3 flex items-center gap-1"><MapPin size={12} /> {biz.parish}</p>
+      <p className="text-xs text-ivory/55 mb-3 flex items-center gap-1"><MapPin size={12} /> {[biz.parish, biz.country].filter(Boolean).join(', ')}</p>
       {biz.review_count > 0 && <div className="mb-3 flex items-center gap-2"><StarRating value={biz.avg_rating} count={biz.review_count} /></div>}
       <p className="text-sm text-ivory/80 whitespace-pre-line mb-4">{biz.description}</p>
       <div className="flex flex-wrap items-center gap-3">
@@ -3731,7 +3794,7 @@ export default function App() {
       {!isPaid && (
         <div className="bg-surface/60 border-b border-ivory/[0.07]">
           <div className="max-w-5xl mx-auto px-4 py-1.5 text-center text-[11px] text-ivory/60">
-            Beta: 14 days free, then US$6.99/month. Cancel any time.
+            Beta: 14 days free, then US$5.99/month. Cancel any time.
           </div>
         </div>
       )}
@@ -3799,7 +3862,7 @@ export default function App() {
 
       <footer className="hidden md:block border-t border-ivory/[0.07] py-8">
         <div className="max-w-5xl mx-auto px-4 text-center text-xs text-ivory/40">
-          The Boardroom JA. Build the table. Don't wait for a seat.
+          The Boardroom. Build the table. Don't wait for a seat.
         </div>
       </footer>
 
