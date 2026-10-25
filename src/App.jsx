@@ -2,8 +2,8 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from './lib/supabase';
 import { pushSupported, isIOS, isInstalledApp, currentPushState, enablePush, disablePush } from './lib/push';
 import { PRIVACY_POLICY_TEXT, TERMS_OF_USE_TEXT } from './lib/legalText';
-import { SELLER_TERMS_TEXT, COMMISSION_PCT, PAYMENT_TERMS_DAYS } from './lib/sellerTerms';
-import { REGIONS, regionLabel } from './lib/places';
+import { SELLER_TERMS_TEXT, COMMISSION_PCT, PAYMENT_TERMS_DAYS, BETA_NDA_TEXT, BETA_NDA_VERSION } from './lib/sellerTerms';
+import { REGIONS, regionLabel, SELL_CURRENCIES, currencyForCountry, CURRENCY_LABELS, contactDetailsIn } from './lib/places';
 import { COUNTRIES, REFUND_POLICIES, REFUND_OPTIONS, STATUTORY_NOTE, scheduleFor, needsDigitalWaiver, payoutRoute, MIN_PAYOUT } from './lib/legalSchedules';
 import {
   Calendar, Users, ShoppingBag, FileText, LogIn, LogOut,
@@ -140,7 +140,9 @@ function AuthModal({ onClose, onAuthed }) {
   const [error, setError] = useState('');
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [agreedPrivacy, setAgreedPrivacy] = useState(false);
-  const [showLegal, setShowLegal] = useState(null); // 'terms' | 'privacy' | null
+  const [agreedNda, setAgreedNda] = useState(false);
+  const [inviteCode, setInviteCode] = useState('');
+  const [showLegal, setShowLegal] = useState(null); // 'terms' | 'privacy' | 'nda' | null
   const [resetSent, setResetSent] = useState(false);
 
   async function sendReset(e) {
@@ -154,20 +156,20 @@ function AuthModal({ onClose, onAuthed }) {
     setResetSent(true);
   }
 
-  const needsConsent = mode === 'signup' && (!agreedTerms || !agreedPrivacy);
+  const needsConsent = mode === 'signup' && (!agreedTerms || !agreedPrivacy || !agreedNda);
 
   async function handleSubmit(e) {
     e.preventDefault();
     if (mode === 'forgot') return sendReset(e);
     setError('');
     if (needsConsent) {
-      setError('Please agree to the Terms of Use and Privacy Policy to continue.');
+      setError('Please agree to the Terms of Use, Privacy Policy and Beta Confidentiality Agreement to continue.');
       return;
     }
     setLoading(true);
     try {
       if (mode === 'signup') {
-        const { data, error: signErr } = await supabase.auth.signUp({ email, password });
+        const { data, error: signErr } = await supabase.auth.signUp({ email, password, options: { data: { invite_code: inviteCode.trim(), beta_nda: 'accepted', nda_version: BETA_NDA_VERSION } } });
         if (signErr) throw signErr;
         if (data.user) {
           await supabase.from('profiles').upsert({ id: data.user.id, full_name: fullName });
@@ -179,7 +181,9 @@ function AuthModal({ onClose, onAuthed }) {
       onAuthed();
       onClose();
     } catch (err) {
-      setError(/invalid login/i.test(err.message || '')
+      setError(/database error saving new user/i.test(err.message || '')
+        ? 'We could not create this account. Please check your invite code is correct, or contact us if you think this is a mistake.'
+        : /invalid login/i.test(err.message || '')
         ? 'That email and password do not match. Check them and try again, or choose "Forgot your password?" below.'
         : /not confirmed/i.test(err.message || '')
           ? 'Please confirm your email first. We sent you a link when you signed up.'
@@ -231,6 +235,14 @@ function AuthModal({ onClose, onAuthed }) {
           )}
 
           {mode === 'signup' && (
+            <input
+              type="text" placeholder="Invite code (if you were given one)" value={inviteCode} autoCapitalize="characters"
+              onChange={(e) => setInviteCode(e.target.value)} maxLength={40}
+              className={inputCls}
+            />
+          )}
+
+          {mode === 'signup' && (
             <div className="space-y-2 pt-1">
               <label className="flex items-start gap-2 text-xs text-ivory/80">
                 <input type="checkbox" checked={agreedTerms} onChange={(e) => setAgreedTerms(e.target.checked)} className="mt-0.5" />
@@ -244,6 +256,13 @@ function AuthModal({ onClose, onAuthed }) {
                 <span>
                   I agree to the{' '}
                   <button type="button" onClick={() => setShowLegal('privacy')} className="text-mint underline">Privacy Policy</button>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 text-xs text-ivory/80">
+                <input type="checkbox" checked={agreedNda} onChange={(e) => setAgreedNda(e.target.checked)} className="mt-0.5" />
+                <span>
+                  I agree to keep the beta confidential (
+                  <button type="button" onClick={() => setShowLegal('nda')} className="text-mint underline">Beta Confidentiality Agreement</button>)
                 </span>
               </label>
             </div>
@@ -272,6 +291,9 @@ function AuthModal({ onClose, onAuthed }) {
       )}
       {showLegal === 'privacy' && (
         <LegalModal title="Privacy Policy" text={PRIVACY_POLICY_TEXT} onClose={() => setShowLegal(null)} />
+      )}
+      {showLegal === 'nda' && (
+        <LegalModal title="Beta Confidentiality Agreement" text={BETA_NDA_TEXT} onClose={() => setShowLegal(null)} />
       )}
     </div>
   );
@@ -615,6 +637,7 @@ function MessageThreadModal({ user, otherUserId, otherName, onClose }) {
   async function handleSend(e) {
     e.preventDefault();
     if (!text.trim()) return;
+    if (contactDetailsIn(text)) { setError('For your safety, phone numbers, email addresses and other chat apps cannot be shared in messages. Please keep your conversation and any sale here.'); return; }
     setSending(true);
     setError('');
     const { error: err } = await supabase.from('messages').insert({
@@ -637,7 +660,7 @@ function MessageThreadModal({ user, otherUserId, otherName, onClose }) {
         <div className="flex items-center justify-between px-5 py-4 border-b border-ivory/10 bg-navy text-ivory">
           <div>
             <p className="font-sans font-semibold text-base tracking-tight">{otherName}</p>
-            <p className="text-[11px] flex items-center gap-1 text-gold"><ShieldCheck size={12} /> Encrypted message thread</p>
+            <p className="text-[11px] flex items-center gap-1 text-gold"><ShieldCheck size={12} /> Private and encrypted</p>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={() => setReporting(true)} className="text-ivory/60 hover:text-ivory" aria-label="Report" title="Report"><Flag size={16} /></button>
@@ -665,6 +688,7 @@ function MessageThreadModal({ user, otherUserId, otherName, onClose }) {
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
+            maxLength={2000}
             placeholder="Type a message…"
             className={inputCls + ' flex-grow'}
           />
@@ -673,6 +697,7 @@ function MessageThreadModal({ user, otherUserId, otherName, onClose }) {
           </button>
         </form>
         {error && <p className="text-[#F2B8C2] bg-wine/60 text-xs px-3 py-2">{error}</p>}
+        <p className="text-[10px] text-ivory/40 px-3 pb-2 pt-1">For your safety, keep sales and chat here. Phone numbers, emails and other chat apps cannot be shared.</p>
       </div>
       {reporting && <ReportModal target={{ type: 'member', id: otherUserId }} onClose={() => setReporting(false)} />}
     </div>
@@ -1173,40 +1198,64 @@ function FField({ label, required, children }) {
 }
 
 function EventForm({ user, isAdmin, onClose, onSaved }) {
-  const [f, setF] = useState({ title: '', description: '', event_date: '', location: '', city: '', country: '', is_online: false, host_name: '', event_type: 'rsvp', price_text: '', ticket_checkout_url: '', external_url: '' });
+  const [f, setF] = useState({ title: '', description: '', event_date: '', location: '', city: '', country: '', is_online: false, host_name: '', event_type: 'rsvp', price: '', currency: 'USD', capacity: '' });
   const [agreed, setAgreed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [showTerms, setShowTerms] = useState(false);
+  const [myShop, setMyShop] = useState(undefined);
+  const [currencyTouched, setCurrencyTouched] = useState(false);
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
   const ticketed = f.event_type === 'ticketed';
+
+  useEffect(() => {
+    supabase.rpc('my_shop').then(({ data }) => {
+      const s = Array.isArray(data) ? data[0] : data;
+      setMyShop(s || null);
+      if (s?.country) setF((x) => (currencyTouched ? x : { ...x, currency: currencyForCountry(s.country) }));
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function submit(e) {
     e.preventDefault();
     if (!f.title.trim() || !f.event_date) return setError('Please add a title and a date.');
-    if (ticketed && (!f.price_text.trim() || !f.ticket_checkout_url.trim())) return setError('Ticketed events need a price and a ticket link.');
-    if (ticketed && !/^https:\/\/[^\s]+\.[^\s]+$/i.test(f.ticket_checkout_url.trim())) return setError('The ticket link must start with https://');
-    if (ticketed && !agreed) return setError('Please agree to the Seller and Organizer Terms.');
     if (!f.is_online && (!f.city.trim() || !f.country)) return setError('Please add the city and country, or mark the event as online.');
+    const priceCents = Math.round(parseFloat(f.price) * 100);
+    if (ticketed) {
+      if (!myShop) return setError('To sell tickets, first open your shop in the Shop tab. That is how we know where to pay you.');
+      if (!(priceCents >= 100)) return setError('Please enter a ticket price of at least 1.00.');
+      if (f.capacity && !(Number(f.capacity) >= 1)) return setError('Capacity must be a number, or leave it empty.');
+      if (!agreed) return setError('Please agree to the Seller and Organizer Terms.');
+    }
     setSaving(true); setError('');
-    const { error: err } = await supabase.from('events').insert({
-      title: f.title.trim(),
-      description: f.description.trim() || null,
-      event_date: new Date(f.event_date).toISOString(),
-      location: f.is_online ? (f.location.trim() || 'Online') : (f.location.trim() || null),
-      is_online: f.is_online,
-      city: f.is_online ? null : f.city.trim().slice(0, 80),
-      country: f.is_online ? null : f.country,
-      host_name: f.host_name.trim() || null,
-      event_type: f.event_type,
-      price_text: ticketed ? f.price_text.trim() : 'Free',
-      ticket_checkout_url: ticketed ? f.ticket_checkout_url.trim() : null,
-      external_url: f.external_url.trim() || null,
-      created_by: user.id,
-      review_status: isAdmin ? 'approved' : 'pending',
-      is_active: true,
-      ...(ticketed ? { seller_terms_accepted_at: new Date().toISOString() } : {}),
-    });
+    let err = null;
+    if (ticketed) {
+      const r = await supabase.rpc('create_ticketed_event', {
+        p_title: f.title.trim(), p_description: f.description.trim() || null, p_event_date: new Date(f.event_date).toISOString(),
+        p_location: f.is_online ? (f.location.trim() || 'Online') : (f.location.trim() || null), p_city: f.is_online ? null : f.city.trim().slice(0, 80),
+        p_country: f.is_online ? null : f.country, p_is_online: f.is_online, p_host_name: f.host_name.trim() || null,
+        p_price_cents: priceCents, p_currency: f.currency, p_capacity: f.capacity ? Math.floor(Number(f.capacity)) : null, p_agreed: true,
+      });
+      err = r.error;
+    } else {
+      const r = await supabase.from('events').insert({
+        title: f.title.trim(),
+        description: f.description.trim() || null,
+        event_date: new Date(f.event_date).toISOString(),
+        location: f.is_online ? (f.location.trim() || 'Online') : (f.location.trim() || null),
+        is_online: f.is_online,
+        city: f.is_online ? null : f.city.trim().slice(0, 80),
+        country: f.is_online ? null : f.country,
+        host_name: f.host_name.trim() || null,
+        event_type: 'rsvp',
+        price_text: 'Free',
+        created_by: user.id,
+        review_status: 'approved',
+        is_active: true,
+      });
+      err = r.error;
+    }
     setSaving(false);
     if (err) return setError(err.message);
     onSaved();
@@ -1216,7 +1265,7 @@ function EventForm({ user, isAdmin, onClose, onSaved }) {
     <FormModal title="List an event" onClose={onClose}>
       <div className="mb-4"><FeeNotice paid={ticketed} onReadTerms={() => setShowTerms(true)} /></div>
       <form onSubmit={submit}>
-        <FField label="Event name" required><input className={inputCls} maxLength={200} value={f.title} onChange={(e) => set('title', e.target.value)} /></FField>
+        <FField label="Event name" required><input className={inputCls} maxLength={180} value={f.title} onChange={(e) => set('title', e.target.value)} /></FField>
         <FField label="Date and time" required><input type="datetime-local" className={inputCls} value={f.event_date} onChange={(e) => set('event_date', e.target.value)} /></FField>
         <FField label="Where is it?">
           <div className="flex gap-2">
@@ -1232,7 +1281,7 @@ function EventForm({ user, isAdmin, onClose, onSaved }) {
             <FField label="City or town" required><input className={inputCls} maxLength={80} value={f.city} onChange={(e) => set('city', e.target.value)} placeholder="e.g. Kingston" /></FField>
           </>
         )}
-        <FField label={f.is_online ? 'Link or details (optional)' : 'Venue or address'}><input className={inputCls} maxLength={200} value={f.location} onChange={(e) => set('location', e.target.value)} placeholder={f.is_online ? 'Online' : 'Venue name'} /></FField>
+        <FField label={f.is_online ? 'Details (optional)' : 'Venue or address'}><input className={inputCls} maxLength={200} value={f.location} onChange={(e) => set('location', e.target.value)} placeholder={f.is_online ? 'Online' : 'Venue name'} /></FField>
         <FField label="Hosted by"><input className={inputCls} maxLength={150} value={f.host_name} onChange={(e) => set('host_name', e.target.value)} /></FField>
         <FField label="Description"><textarea rows={3} className={inputCls} maxLength={3000} value={f.description} onChange={(e) => set('description', e.target.value)} /></FField>
         <FField label="Event type">
@@ -1245,14 +1294,21 @@ function EventForm({ user, isAdmin, onClose, onSaved }) {
         </FField>
         {ticketed && (
           <>
-            <FField label="Ticket price" required><input className={inputCls} value={f.price_text} onChange={(e) => set('price_text', e.target.value)} placeholder="e.g. US$25" /></FField>
-            <FField label="Ticket payment link" required><input className={inputCls} value={f.ticket_checkout_url} onChange={(e) => set('ticket_checkout_url', e.target.value)} placeholder="https://" /></FField>
+            {myShop === null && (
+              <p className="text-xs text-ivory bg-wine/60 border border-wine rounded-xl px-3 py-2 mb-3">To sell tickets you need a shop first, because that is how we pay you. Close this, open the Shop tab, choose "My shop and orders" and open your shop. Then come back.</p>
+            )}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2"><FField label="Ticket price" required><input inputMode="decimal" className={inputCls} value={f.price} onChange={(e) => set('price', e.target.value)} placeholder="25.00" /></FField></div>
+              <FField label="Currency"><select className={inputCls} value={f.currency} onChange={(e) => { setCurrencyTouched(true); set('currency', e.target.value); }}>{CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></FField>
+            </div>
+            <p className="text-[11px] text-ivory/45 -mt-2 mb-4">{CURRENCY_LABELS[f.currency]}. Buyers pay by card in the app. We hold the money and pay you after 30 days, minus Stripe fees and our commission.</p>
+            <FField label="Number of tickets (optional)"><input inputMode="numeric" className={inputCls} value={f.capacity} onChange={(e) => set('capacity', e.target.value.replace(/[^0-9]/g, '').slice(0, 5))} placeholder="Leave empty for no limit" /></FField>
             <SellerAgree checked={agreed} onChange={setAgreed} onReadTerms={() => setShowTerms(true)} />
           </>
         )}
         {error && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs mb-3">{error}</p>}
-        <p className="text-xs text-ivory/50 mb-4">{isAdmin ? 'As an admin your event goes live straight away.' : 'We review every listing before it goes live, usually within a couple of days.'}{(ticketed || isAdmin) ? ' Members in the same city get a reminder a week before.' : ''}</p>
-        <GoldButton type="submit" disabled={saving}>{saving ? <Loader2 className="animate-spin" size={16} /> : isAdmin ? 'Publish event' : 'Submit for review'}</GoldButton>
+        <p className="text-xs text-ivory/50 mb-4">Your event goes live as soon as you save it. You are responsible for what you list. No sexual or adult content is allowed, and we may remove any listing that breaks our rules.{(ticketed || isAdmin) ? ' Members in the same city get a reminder a week before.' : ''}</p>
+        <GoldButton type="submit" disabled={saving || (ticketed && myShop === null)}>{saving ? <Loader2 className="animate-spin" size={16} /> : 'Publish event'}</GoldButton>
       </form>
       {showTerms && <LegalModal title="Seller and Organizer Terms" text={SELLER_TERMS_TEXT} onClose={() => setShowTerms(false)} />}
     </FormModal>
@@ -1262,9 +1318,59 @@ function EventForm({ user, isAdmin, onClose, onSaved }) {
 function SubmittedNote({ onDismiss }) {
   return (
     <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl bg-mint/10 border border-mint/25 px-4 py-3 text-sm text-mint">
-      <span>Thanks, your listing is in. We'll review it and it will appear once approved.</span>
-      <button onClick={onDismiss}><X size={14} /></button>
+      <span>Your event is live.</span>
+      <button onClick={onDismiss} aria-label="Dismiss" className="w-11 h-11 flex items-center justify-center"><X size={14} /></button>
     </div>
+  );
+}
+
+function TicketModal({ user, event, onClose }) {
+  const [f, setF] = useState({ buyer_name: '', buyer_email: user?.email || '', buyer_country: '' });
+  const [consent, setConsent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [legal, setLegal] = useState(null);
+  const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
+  async function submit(e) {
+    e.preventDefault();
+    if (!f.buyer_name.trim() || !f.buyer_email.trim()) return setError('Please add your name and email.');
+    if (!f.buyer_country) return setError('Please choose the country you live in.');
+    if (!consent) return setError('Please tick the box to agree to share your details with the organiser.');
+    setBusy(true); setError('');
+    const { data, error: err } = await supabase.functions.invoke('create-event-checkout', { body: { event_id: event.id, ...f, consent: true } });
+    if (err) { setBusy(false); return setError(await fnErrorMessage(err)); }
+    if (data?.url) window.location.href = data.url;
+    else { setBusy(false); setError(data?.error || 'Could not start checkout.'); }
+  }
+  return (
+    <FormModal title="Get your ticket" onClose={onClose}>
+      <div className="mb-4 p-3 rounded-2xl bg-navy/50">
+        <p className="font-semibold text-ivory">{event.title}</p>
+        {event.event_date && <p className="text-xs text-ivory/55">{new Date(event.event_date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>}
+        <p className="text-sm font-semibold text-mint mt-0.5">{event.price_text}</p>
+      </div>
+      <form onSubmit={submit}>
+        <FField label="Your name" required><input className={inputCls} maxLength={120} value={f.buyer_name} onChange={(e) => set('buyer_name', e.target.value)} /></FField>
+        <FField label="Email" required><input type="email" className={inputCls} maxLength={200} value={f.buyer_email} onChange={(e) => set('buyer_email', e.target.value)} /></FField>
+        <FField label="Country you live in" required><CountrySelect value={f.buyer_country} onChange={(v) => set('buyer_country', v)} /></FField>
+        <div className="rounded-2xl bg-navy/50 border border-ivory/10 px-4 py-3 text-xs text-ivory/75 mb-3">
+          <p className="font-semibold text-ivory/90 mb-1">Refunds</p>
+          <p>Event tickets are not refundable once bought, unless the organiser cancels or materially changes the event. Your legal rights as a consumer are not affected.</p>
+        </div>
+        <label className="flex items-start gap-2.5 text-xs text-ivory/80 mb-4 cursor-pointer">
+          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 accent-[#D4A33A]" />
+          <span>I agree that The Boardroom shares my name and email with the organiser so they can manage the guest list. See our{' '}
+            <button type="button" onClick={() => setLegal('privacy')} className="text-gold underline underline-offset-2">Privacy Policy</button> and{' '}
+            <button type="button" onClick={() => setLegal('terms')} className="text-gold underline underline-offset-2">Terms</button>.
+          </span>
+        </label>
+        {error && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs mb-3">{error}</p>}
+        <GoldButton type="submit" disabled={busy}>{busy ? <Loader2 className="animate-spin" size={16} /> : `Pay ${event.price_text}`}</GoldButton>
+        <p className="text-[11px] text-ivory/45 mt-3">You pay securely by card through Stripe. The organiser never sees your card details.</p>
+      </form>
+      {legal === 'privacy' && <LegalModal title="Privacy Policy" text={PRIVACY_POLICY_TEXT} onClose={() => setLegal(null)} />}
+      {legal === 'terms' && <LegalModal title="Terms of Use" text={TERMS_OF_USE_TEXT} onClose={() => setLegal(null)} />}
+    </FormModal>
   );
 }
 
@@ -1275,10 +1381,11 @@ function SubmittedNote({ onDismiss }) {
 
 function EventsTab({ user, onRequireAuth, isAdmin, isApproved, status, onApply }) {
   const [events, setEvents] = useState(null);
-  const [rsvpdIds, setRsvpdIds] = useState(new Set());
+  const [rsvps, setRsvps] = useState({});
   const [busyId, setBusyId] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [ticketFor, setTicketFor] = useState(null);
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -1290,11 +1397,11 @@ function EventsTab({ user, onRequireAuth, isAdmin, isApproved, status, onApply }
     setEvents(data || []);
 
     if (user) {
-      const { data: rsvps } = await supabase
+      const { data: rows } = await supabase
         .from('event_rsvps')
-        .select('event_id')
+        .select('event_id,ticket_status')
         .eq('user_id', user.id);
-      setRsvpdIds(new Set((rsvps || []).map((r) => r.event_id)));
+      setRsvps(Object.fromEntries((rows || []).map((r) => [r.event_id, r.ticket_status])));
     }
   }, [user]);
 
@@ -1313,11 +1420,11 @@ function EventsTab({ user, onRequireAuth, isAdmin, isApproved, status, onApply }
   const listBar = (
     <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <p className="text-sm text-ivory/60">Hosting something? It's free to list your event.</p>
-      <GoldButton onClick={() => (!user ? onRequireAuth() : (isApproved || isAdmin) ? setShowForm(true) : status === 'unconfirmed' ? onApply() : null)}><Plus size={15} /> {!user || isApproved || isAdmin ? 'List an event' : status === 'pending' ? 'Application pending' : status === 'declined' ? 'Not available' : 'Apply to join to list an event'}</GoldButton>
+      <GoldButton onClick={() => (!user ? onRequireAuth() : (isApproved || isAdmin) ? setShowForm(true) : status === 'unconfirmed' ? onApply() : null)}><Plus size={15} /> {!user || isApproved || isAdmin ? 'List an event' : status === 'pending' ? 'Application pending' : status === 'declined' ? 'Not available' : 'Join to list an event'}</GoldButton>
     </div>
   );
   const formModal = showForm && (
-    <EventForm user={user} isAdmin={isAdmin} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); if (isAdmin) load(); else setSubmitted(true); }} />
+    <EventForm user={user} isAdmin={isAdmin} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); setSubmitted(true); load(); }} />
   );
 
   if (events.length === 0) {
@@ -1336,13 +1443,16 @@ function EventsTab({ user, onRequireAuth, isAdmin, isApproved, status, onApply }
     {submitted && <SubmittedNote onDismiss={() => setSubmitted(false)} />}
     {listBar}
     {formModal}
+    {ticketFor && <TicketModal user={user} event={ticketFor} onClose={() => setTicketFor(null)} />}
     <div className="grid gap-4 sm:grid-cols-2">
       {events.map((ev) => {
-        const going = rsvpdIds.has(ev.id);
+        const ticketed = ev.event_type === 'ticketed';
+        const status_ = rsvps[ev.id];
+        const going = ticketed ? status_ === 'paid' : !!status_ && status_ !== 'cancelled';
         const date = ev.event_date ? new Date(ev.event_date) : null;
         return (
           <Card key={ev.id} className="p-5 flex flex-col">
-            <SectionLabel>{ev.event_type === 'ticketed' ? 'Ticketed' : 'RSVP'}</SectionLabel>
+            <SectionLabel>{ticketed ? 'Ticketed' : 'RSVP'}</SectionLabel>
             <h3 className="font-sans font-semibold text-lg tracking-tight text-ivory mb-1">{ev.title}</h3>
             {date && (
               <p className="text-xs text-ivory/55 mb-2 font-sans">
@@ -1355,15 +1465,17 @@ function EventsTab({ user, onRequireAuth, isAdmin, isApproved, status, onApply }
             {ev.description && <p className="text-sm text-ivory/75 mb-4 flex-grow">{ev.description}</p>}
             <div className="flex items-center justify-between mt-auto pt-2">
               <span className="text-sm font-semibold text-mint">{ev.price_text || 'Free'}</span>
-              {ev.event_type === 'ticketed' && ev.ticket_checkout_url ? (
-                <GoldButton href={ev.ticket_checkout_url}>Get ticket</GoldButton>
+              {ticketed ? (
+                ev.ticket_product_id ? (
+                  <GoldButton onClick={() => (user ? setTicketFor(ev) : onRequireAuth())} disabled={going}>{going ? 'You have a ticket' : 'Get ticket'}</GoldButton>
+                ) : null
               ) : (
                 <GoldButton onClick={() => handleRsvp(ev.id)} disabled={going || busyId === ev.id}>
                   {busyId === ev.id ? <Loader2 className="animate-spin" size={14} /> : going ? "You're going" : 'RSVP'}
                 </GoldButton>
               )}
             </div>
-            {ev.event_type === 'ticketed' && <p className="text-[11px] text-ivory/45 mt-2">Tickets are sold by the organiser on their own page. The Boardroom does not take this payment, so check the details before you pay.</p>}
+            {ticketed && <p className="text-[11px] text-ivory/45 mt-2">Pay by card in the app. Tickets are not refundable unless the organiser cancels or changes the event.</p>}
             <div className="mt-2"><ReportLink user={user} onRequireAuth={onRequireAuth} type="event" id={ev.id} /></div>
           </Card>
         );
@@ -1506,7 +1618,7 @@ const SHOP_CATEGORIES = [
   { name: 'Templates & Downloads', icon: Download },
   { name: 'Other', icon: Package },
 ];
-const CURRENCIES = ['USD', 'GBP', 'EUR', 'CAD'];
+const CURRENCIES = SELL_CURRENCIES;
 
 function formatMoney(cents, currency = 'USD') {
   try {
@@ -1658,6 +1770,17 @@ function RefundBox({ policy }) {
   );
 }
 
+function dealState(p, shop, isMember, buyerCountry) {
+  const now = new Date();
+  const active = !!p.deal_percent && !!p.deal_ends_at && new Date(p.deal_ends_at) > now && (!p.deal_starts_at || new Date(p.deal_starts_at) <= now);
+  if (!active) return null;
+  const pct = Number(p.deal_percent);
+  const dealPrice = Math.max(50, Math.round((p.price_cents || 0) * (100 - pct) / 100));
+  const physical = p.product_type === 'physical';
+  const countryOk = !physical || (!!shop?.country && !!buyerCountry && shop.country.trim().toLowerCase() === buyerCountry.trim().toLowerCase());
+  return { pct, dealPrice, physical, countryOk, eligible: !!isMember && countryOk, endsAt: p.deal_ends_at };
+}
+
 function ProductCard({ p, shopName, onOpen, onOpenShop }) {
   return (
     <Card className="overflow-hidden flex flex-col hover:border-gold/40 transition-colors">
@@ -1674,6 +1797,7 @@ function ProductCard({ p, shopName, onOpen, onOpenShop }) {
           <h3 className="font-semibold text-base text-ivory leading-snug mb-1">{p.name}</h3>
           <div className="mb-1"><StarRating value={p.avg_rating} count={p.review_count} /></div>
           <p className="text-sm font-semibold text-mint">{p.price_cents ? formatMoney(p.price_cents, p.currency) : p.price_text}</p>
+          {dealState(p, null, false, '') && <p className="mt-1 inline-block text-[11px] font-semibold text-navy bg-gold rounded-full px-2.5 py-0.5">Member deal: {p.deal_percent}% off</p>}
         </div>
       </button>
       {shopName && (
@@ -1685,7 +1809,7 @@ function ProductCard({ p, shopName, onOpen, onOpenShop }) {
   );
 }
 
-function BuyModal({ user, product, shop, onClose }) {
+function BuyModal({ user, product, shop, isMember, onClose }) {
   const [f, setF] = useState({ buyer_name: '', buyer_email: user?.email || '', buyer_phone: '', delivery_address: '', buyer_notes: '', quantity: 1, buyer_country: '' });
   const [consent, setConsent] = useState(false);
   const [refundAck, setRefundAck] = useState(false);
@@ -1697,7 +1821,9 @@ function BuyModal({ user, product, shop, onClose }) {
   const [legal, setLegal] = useState(null);
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
   const physical = product.product_type === 'physical';
-  const total = (product.price_cents || 0) * f.quantity;
+  const deal = dealState(product, shop, isMember, f.buyer_country);
+  const unit = deal?.eligible ? deal.dealPrice : (product.price_cents || 0);
+  const total = unit * f.quantity;
 
   async function submit(e) {
     e.preventDefault();
@@ -1723,7 +1849,12 @@ function BuyModal({ user, product, shop, onClose }) {
         <div>
           <p className="font-semibold text-ivory">{product.name}</p>
           <p className="text-xs text-ivory/55">Sold by {shop?.name}</p>
-          <p className="text-sm font-semibold text-mint mt-0.5">{formatMoney(product.price_cents, product.currency)}</p>
+          <p className="text-sm font-semibold text-mint mt-0.5">
+            {deal?.eligible ? (<><span className="line-through text-ivory/40 mr-2">{formatMoney(product.price_cents, product.currency)}</span>{formatMoney(unit, product.currency)}</>) : formatMoney(product.price_cents, product.currency)}
+          </p>
+          {deal && deal.eligible && <p className="text-[11px] text-gold">Member deal applied: {deal.pct}% off</p>}
+          {deal && !deal.eligible && isMember && deal.physical && <p className="text-[11px] text-ivory/60">{deal.pct}% member deal is for members in {shop?.country}. Choose your country below to check.</p>}
+          {deal && !isMember && <p className="text-[11px] text-ivory/60">Members get {deal.pct}% off this item.</p>}
         </div>
       </div>
       <form onSubmit={submit}>
@@ -1778,7 +1909,7 @@ function BuyModal({ user, product, shop, onClose }) {
   );
 }
 
-function ProductModal({ product, shop, user, onRequireAuth, onClose, onBuy, onOpenShop }) {
+function ProductModal({ product, shop, user, isMember, onUpgrade, onRequireAuth, onClose, onBuy, onOpenShop }) {
   const [reviews, setReviews] = useState([]);
   useEffect(() => {
     supabase.from('reviews').select('id,reviewer_name,rating,comment,created_at')
@@ -1795,7 +1926,24 @@ function ProductModal({ product, shop, user, onRequireAuth, onClose, onBuy, onOp
         {product.category && <span className="text-[11px] text-ivory/55">{product.category}</span>}
         {product.sales_count > 0 && <span className="text-[11px] text-gold">{product.sales_count} sold</span>}
       </div>
-      <p className="text-xl font-semibold text-mint mb-2">{formatMoney(product.price_cents, product.currency)}</p>
+      {(() => {
+        const d = dealState(product, shop, isMember, '');
+        return (
+          <>
+            <p className="text-xl font-semibold text-mint mb-2">
+              {d && isMember && !d.physical ? (<><span className="line-through text-ivory/40 text-base mr-2">{formatMoney(product.price_cents, product.currency)}</span>{formatMoney(d.dealPrice, product.currency)}</>) : formatMoney(product.price_cents, product.currency)}
+            </p>
+            {d && (
+              <div className="rounded-2xl bg-gold/10 border border-gold/25 px-4 py-3 text-xs text-ivory/85 mb-3">
+                <p className="font-semibold text-gold mb-0.5">Member deal: {d.pct}% off until {new Date(d.endsAt).toLocaleDateString()}</p>
+                {isMember
+                  ? (d.physical ? `For members in ${shop?.country || 'the seller\'s country'}. It is applied at checkout when you choose that country.` : 'Applied automatically at checkout.')
+                  : (<>Only for active members. {onUpgrade && <button type="button" onClick={onUpgrade} className="text-gold underline underline-offset-2 min-h-[44px]">Start your free trial</button>}</>)}
+              </div>
+            )}
+          </>
+        );
+      })()}
       <div className="mb-3"><StarRating value={product.avg_rating} count={product.review_count} size={15} /></div>
       {product.description && <p className="text-sm text-ivory/80 whitespace-pre-line mb-4">{product.description}</p>}
       {product.delivery_notes && <p className="text-sm text-ivory/70 mb-4"><b className="text-ivory/85">Delivery:</b> {product.delivery_notes}</p>}
@@ -1880,7 +2028,7 @@ function OpenShopForm({ user, onClose, onSaved }) {
       owner_id: user.id, name: f.name.trim(), slug, description: f.description.trim() || null,
       country: f.country, order_email: f.order_email.trim(), logo_url: logoUrl, refund_policy: f.refund_policy,
       payout_country: f.payout_country, payout_notice_ack_at: payoutRoute(f.payout_country) === 'manual' ? new Date().toISOString() : null,
-      seller_terms_accepted_at: new Date().toISOString(),
+      seller_terms_accepted_at: new Date().toISOString(), review_status: 'approved', is_active: true,
     });
     setSaving(false);
     if (err) return setError(err.message);
@@ -1908,8 +2056,8 @@ function OpenShopForm({ user, onClose, onSaved }) {
         )}
         <SellerAgree checked={agreed} onChange={setAgreed} onReadTerms={() => setShowTerms(true)} />
         {error && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs mb-3">{error}</p>}
-        <p className="text-xs text-ivory/50 mb-4">We review every shop before it goes live. When an order comes in we email you the buyer's details so you can arrange delivery.</p>
-        <GoldButton type="submit" disabled={saving}>{saving ? <Loader2 className="animate-spin" size={16} /> : 'Submit shop for review'}</GoldButton>
+        <p className="text-xs text-ivory/50 mb-4">Your shop goes live as soon as you save it. You will add your products, with their prices, in the next step. When an order comes in we email you the buyer's details so you can arrange delivery. You are responsible for what you list, and we may remove anything that breaks our rules.</p>
+        <GoldButton type="submit" disabled={saving}>{saving ? <Loader2 className="animate-spin" size={16} /> : 'Open my shop'}</GoldButton>
       </form>
       {showTerms && <LegalModal title="Seller and Organizer Terms" text={SELLER_TERMS_TEXT} onClose={() => setShowTerms(false)} />}
     </FormModal>
@@ -1917,7 +2065,7 @@ function OpenShopForm({ user, onClose, onSaved }) {
 }
 
 function ProductForm({ user, shop, onClose, onSaved }) {
-  const [f, setF] = useState({ name: '', description: '', category: SHOP_CATEGORIES[0].name, product_type: 'physical', price: '', currency: 'USD', delivery_notes: '', stock_status: 'in_stock', refund_policy: shop.refund_policy || 'days_14' });
+  const [f, setF] = useState({ name: '', description: '', category: SHOP_CATEGORIES[0].name, product_type: 'physical', price: '', currency: currencyForCountry(shop.country), delivery_notes: '', stock_status: 'in_stock', refund_policy: shop.refund_policy || 'days_14' });
   const [agreed, setAgreed] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1954,7 +2102,7 @@ function ProductForm({ user, shop, onClose, onSaved }) {
       category: f.category, product_type: f.product_type, price_cents: price, currency: f.currency,
       refund_policy: policyValue, price_text: formatMoney(price, f.currency), image_url: imageUrl,
       delivery_notes: f.delivery_notes.trim() || null, stock_status: f.stock_status,
-      review_status: 'pending', is_active: false, seller_terms_accepted_at: new Date().toISOString(),
+      review_status: 'approved', is_active: true, seller_terms_accepted_at: new Date().toISOString(),
     });
     setSaving(false);
     if (err) return setError(err.message);
@@ -1980,8 +2128,9 @@ function ProductForm({ user, shop, onClose, onSaved }) {
         </FField>
         <div className="grid grid-cols-3 gap-3">
           <div className="col-span-2"><FField label="Price" required><input inputMode="decimal" className={inputCls} value={f.price} onChange={(e) => set('price', e.target.value)} placeholder="25.00" /></FField></div>
-          <FField label="Currency"><select className={inputCls} value={f.currency} onChange={(e) => set('currency', e.target.value)}>{CURRENCIES.map((c) => <option key={c}>{c}</option>)}</select></FField>
+          <FField label="Currency"><select className={inputCls} value={f.currency} onChange={(e) => set('currency', e.target.value)}>{CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></FField>
         </div>
+        <p className="text-[11px] text-ivory/45 -mt-2 mb-4">{CURRENCY_LABELS[f.currency]}. Suggested from your shop's country: pounds in the UK, euros in the euro area, US dollars everywhere else.</p>
         <FField label="Product photo (JPG, PNG or WebP, up to 2 MB)">
           {preview && <img src={preview} alt="Preview" className="w-full max-h-48 object-cover rounded-xl mb-2" />}
           <input type="file" accept="image/jpeg,image/png,image/webp" onChange={pickImage} className="block w-full text-sm text-ivory/70 file:mr-3 file:min-h-[44px] file:px-4 file:rounded-full file:border-0 file:bg-gold file:text-navy file:font-semibold" />
@@ -1992,10 +2141,77 @@ function ProductForm({ user, shop, onClose, onSaved }) {
         <FField label="Refund policy for this product"><RefundPicker type={f.product_type} value={policyValue} onChange={(v) => set('refund_policy', v)} /></FField>
         <SellerAgree checked={agreed} onChange={setAgreed} onReadTerms={() => setShowTerms(true)} />
         {error && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs mb-3">{error}</p>}
-        <p className="text-xs text-ivory/50 mb-4">Products are reviewed before they appear in the shop. Buyers see your refund policy before they pay.</p>
-        <GoldButton type="submit" disabled={saving}>{saving ? <Loader2 className="animate-spin" size={16} /> : 'Submit for review'}</GoldButton>
+        <p className="text-xs text-ivory/50 mb-4">Your product goes live as soon as you save it. Buyers see your refund policy before they pay. You are responsible for what you list. No sexual or adult content is allowed, and we may remove any listing that breaks our rules.</p>
+        <GoldButton type="submit" disabled={saving}>{saving ? <Loader2 className="animate-spin" size={16} /> : 'Publish product'}</GoldButton>
       </form>
       {showTerms && <LegalModal title="Seller and Organizer Terms" text={SELLER_TERMS_TEXT} onClose={() => setShowTerms(false)} />}
+    </FormModal>
+  );
+}
+
+function DealModal({ product, shop, onClose, onSaved }) {
+  const running = !!product.deal_percent && !!product.deal_ends_at && new Date(product.deal_ends_at) > new Date();
+  const [percent, setPercent] = useState(running ? product.deal_percent : 20);
+  const [days, setDays] = useState(7);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [done, setDone] = useState(null);
+  const physical = product.product_type === 'physical';
+  const price = product.price_cents || 0;
+  const newPrice = Math.max(50, Math.round(price * (100 - Number(percent || 0)) / 100));
+
+  async function save(clear) {
+    setBusy(true); setError('');
+    const { data, error: err } = await supabase.rpc('set_product_deal', { p_product_id: product.id, p_percent: clear ? 0 : Number(percent), p_days: Number(days) });
+    setBusy(false);
+    if (err) return setError(err.message);
+    if (clear) return onSaved();
+    setDone(data || {});
+  }
+
+  if (done) {
+    return (
+      <FormModal title="Member deal is live" onClose={onSaved}>
+        <p className="text-sm text-ivory/85 mb-3">{percent}% off {product.name} is now showing in Benefits for members for {days} {Number(days) === 1 ? 'day' : 'days'}.</p>
+        <p className="text-sm text-ivory/70 mb-4">
+          {done.limited
+            ? 'We did not send a notification this time, because your shop already sent one in the last 7 days. The deal still shows in Benefits.'
+            : `We sent a notification to ${done.notified} ${done.notified === 1 ? 'member' : 'members'}.`}
+        </p>
+        <GoldButton onClick={onSaved}>Done</GoldButton>
+      </FormModal>
+    );
+  }
+
+  return (
+    <FormModal title="Member deal" onClose={onClose}>
+      <p className="text-sm text-ivory/80 mb-1">{product.name}</p>
+      <p className="text-xs text-ivory/55 mb-4">Normal price {formatMoney(price, product.currency)}. Only active members get the deal. It appears in Benefits and members are notified.</p>
+      <FField label="Discount">
+        <div className="flex flex-wrap gap-2 mb-2">
+          {[10, 15, 20, 25, 30, 50].map((v) => (
+            <button key={v} type="button" onClick={() => setPercent(v)} className={`px-4 min-h-[44px] text-sm font-medium rounded-full border ${Number(percent) === v ? 'bg-gold text-navy border-gold' : 'border-ivory/20 text-ivory/70'}`}>{v}%</button>
+          ))}
+        </div>
+        <input type="number" min={5} max={90} className={inputCls} value={percent} onChange={(e) => setPercent(e.target.value)} />
+        <p className="text-[11px] text-ivory/45 mt-1">Between 5% and 90%. Members would pay {formatMoney(newPrice, product.currency)}.</p>
+      </FField>
+      <FField label="How long">
+        <div className="flex flex-wrap gap-2">
+          {[[1, '1 day'], [3, '3 days'], [7, '1 week'], [14, '2 weeks'], [30, '1 month']].map(([v, l]) => (
+            <button key={v} type="button" onClick={() => setDays(v)} className={`px-4 min-h-[44px] text-sm font-medium rounded-full border ${Number(days) === v ? 'bg-gold text-navy border-gold' : 'border-ivory/20 text-ivory/70'}`}>{l}</button>
+          ))}
+        </div>
+      </FField>
+      <div className="rounded-2xl bg-gold/10 border border-gold/25 px-4 py-3 text-xs text-ivory/80 mb-4">
+        {physical
+          ? `This is a physical product, so the deal and the notification go to members in ${shop?.country || 'your country'} only.`
+          : 'This is a digital product, so the deal and the notification go to all members.'}
+        {' '}You can send one deal notification per week. The discount comes out of your sale price before the commission is worked out.
+      </div>
+      {error && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs mb-3">{error}</p>}
+      <GoldButton onClick={() => save(false)} disabled={busy}>{busy ? <Loader2 className="animate-spin" size={16} /> : running ? 'Update deal' : 'Start deal'}</GoldButton>
+      {running && <button type="button" onClick={() => save(true)} disabled={busy} className="mt-3 min-h-[44px] text-sm text-gold underline underline-offset-2 block">End this deal now</button>}
     </FormModal>
   );
 }
@@ -2011,6 +2227,7 @@ function MyShopPanel({ user, onClose, onChanged, isPaid, onUpgrade, isApproved, 
   const [payBusy, setPayBusy] = useState(false);
   const [payErr, setPayErr] = useState('');
   const [form, setForm] = useState(null); // 'shop' | 'product'
+  const [dealFor, setDealFor] = useState(null);
 
   const load = useCallback(async () => {
     const { data: shopRows } = await supabase.rpc('my_shop');
@@ -2056,7 +2273,8 @@ function MyShopPanel({ user, onClose, onChanged, isPaid, onUpgrade, isApproved, 
     load();
   }
 
-  const statusLabel = (p) => (p.review_status === 'approved' && p.is_active ? (p.stock_status === 'out_of_stock' ? 'Sold out' : 'Live') : p.review_status === 'approved' ? 'Paused' : p.review_status === 'rejected' ? 'Declined' : 'In review');
+  const statusLabel = (p) => (p.review_status === 'approved' && p.is_active ? (p.stock_status === 'out_of_stock' ? 'Sold out' : 'Live') : p.review_status === 'approved' ? 'Paused' : 'Removed');
+  const dealRunning = (p) => !!p.deal_percent && !!p.deal_ends_at && new Date(p.deal_ends_at) > new Date();
 
   return (
     <FormModal title="My shop and orders" onClose={onClose}>
@@ -2089,22 +2307,26 @@ function MyShopPanel({ user, onClose, onChanged, isPaid, onUpgrade, isApproved, 
               <div className="flex items-start justify-between gap-3 mb-1">
                 <h3 className="font-semibold text-ivory text-lg">{shop.name}</h3>
                 <span className="text-[11px] font-medium rounded-full px-2.5 py-1 bg-ivory/[0.07] text-ivory/70">
-                  {shop.review_status === 'approved' ? 'Live' : shop.review_status === 'rejected' ? 'Declined' : 'In review'}
+                  {shop.review_status === 'approved' ? 'Live' : 'Removed'}
                 </span>
               </div>
-              {shop.review_status !== 'approved' && <p className="text-xs text-ivory/55 mb-3">We're reviewing your shop. You can add products now and they'll appear once it's approved.</p>}
-              {isApproved && <div className="mb-4"><GoldButton onClick={() => setForm('product')}><Plus size={15} /> Add a product</GoldButton></div>}
-              {products.length > 0 && (
+              {shop.review_status !== 'approved' && <p className="text-xs text-ivory/55 mb-3">This shop has been taken down. Email {CONTACT_EMAIL} if you think that is a mistake.</p>}
+              {isApproved && shop.review_status === 'approved' && <div className="mb-4"><GoldButton onClick={() => setForm('product')}><Plus size={15} /> Add a product</GoldButton></div>}
+              {products.filter((p) => p.category !== 'Event ticket').length === 0 && shop.review_status === 'approved' && <p className="text-sm text-ivory/60 mb-3">Your shop is live. Add your first product and its price to start selling.</p>}
+              {products.filter((p) => p.category !== 'Event ticket').length > 0 && (
                 <div className="space-y-2">
-                  {products.map((p) => (
+                  {products.filter((p) => p.category !== 'Event ticket').map((p) => (
                     <div key={p.id} className="flex items-center justify-between gap-3 rounded-xl bg-navy/50 px-4 py-3 text-sm">
-                      <div><p className="text-ivory">{p.name}</p><p className="text-xs text-ivory/50">{formatMoney(p.price_cents, p.currency)} · {p.sales_count} sold</p></div>
+                      <div><p className="text-ivory">{p.name}</p><p className="text-xs text-ivory/50">{formatMoney(p.price_cents, p.currency)} · {p.sales_count} sold</p>
+                        {dealRunning(p) && <p className="text-[11px] text-mint mt-0.5">Member deal: {p.deal_percent}% off until {new Date(p.deal_ends_at).toLocaleDateString()}</p>}
+                      </div>
                       <div className="flex flex-col items-end gap-1">
                         <span className="text-[11px] text-ivory/60">{statusLabel(p)}</span>
                         {p.review_status === 'approved' && (
-                          <div className="flex gap-3">
-                            <button onClick={() => setStatus(p, p.stock_status === 'out_of_stock' ? 'in_stock' : 'out_of_stock', p.is_active)} className="text-[11px] text-gold underline underline-offset-2">{p.stock_status === 'out_of_stock' ? 'Mark in stock' : 'Mark sold out'}</button>
-                            <button onClick={() => setStatus(p, p.stock_status, !p.is_active)} className="text-[11px] text-gold underline underline-offset-2">{p.is_active ? 'Pause' : 'Resume'}</button>
+                          <div className="flex flex-wrap justify-end gap-x-3">
+                            <button onClick={() => setStatus(p, p.stock_status === 'out_of_stock' ? 'in_stock' : 'out_of_stock', p.is_active)} className="min-h-[32px] text-[11px] text-gold underline underline-offset-2">{p.stock_status === 'out_of_stock' ? 'Mark in stock' : 'Mark sold out'}</button>
+                            <button onClick={() => setStatus(p, p.stock_status, !p.is_active)} className="min-h-[32px] text-[11px] text-gold underline underline-offset-2">{p.is_active ? 'Pause' : 'Resume'}</button>
+                            <button onClick={() => setDealFor(p)} className="min-h-[32px] text-[11px] text-gold underline underline-offset-2">{dealRunning(p) ? 'Change deal' : 'Member deal'}</button>
                           </div>
                         )}
                       </div>
@@ -2196,7 +2418,8 @@ function MyShopPanel({ user, onClose, onChanged, isPaid, onUpgrade, isApproved, 
         </div>
       )}
       {form === 'shop' && <OpenShopForm user={user} onClose={() => setForm(null)} onSaved={() => { setForm(null); load(); onChanged(); }} />}
-      {form === 'product' && shop && <ProductForm user={user} shop={shop} onClose={() => setForm(null)} onSaved={() => { setForm(null); load(); }} />}
+      {form === 'product' && shop && <ProductForm user={user} shop={shop} onClose={() => setForm(null)} onSaved={() => { setForm(null); load(); onChanged(); }} />}
+      {dealFor && <DealModal product={dealFor} shop={shop} onClose={() => setDealFor(null)} onSaved={() => { setDealFor(null); load(); onChanged(); }} />}
     </FormModal>
   );
 }
@@ -2229,6 +2452,13 @@ function ShopTab({ user, onRequireAuth, openPanel, isPaid, onUpgrade, isApproved
     }
   }, []);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (products === null) return;
+    try {
+      const id = localStorage.getItem('tbja_open_shop');
+      if (id) { localStorage.removeItem('tbja_open_shop'); setView({ mode: 'shop', shopId: id }); }
+    } catch { /* ignore */ }
+  }, [products]);
 
   if (products === null) return <Spinner />;
 
@@ -2357,10 +2587,10 @@ function ShopTab({ user, onRequireAuth, openPanel, isPaid, onUpgrade, isApproved
       )}
 
       {selected && !buying && (
-        <ProductModal product={selected} shop={shopById[selected.shop_id]} user={user} onRequireAuth={onRequireAuth} onClose={() => setSelected(null)}
+        <ProductModal product={selected} shop={shopById[selected.shop_id]} user={user} isMember={isPaid} onUpgrade={onUpgrade} onRequireAuth={onRequireAuth} onClose={() => setSelected(null)}
           onBuy={() => (user ? setBuying(selected) : onRequireAuth())} onOpenShop={openShop} />
       )}
-      {buying && <BuyModal user={user} product={buying} shop={shopById[buying.shop_id]} onClose={() => { setBuying(null); setSelected(null); }} />}
+      {buying && <BuyModal user={user} product={buying} shop={shopById[buying.shop_id]} isMember={isPaid} onClose={() => { setBuying(null); setSelected(null); }} />}
       {showPanel && user && <MyShopPanel user={user} isPaid={isPaid} onUpgrade={onUpgrade} isApproved={isApproved} status={status} onApply={onApply} onClose={() => setShowPanel(false)} onChanged={load} />}
     </div>
   );
@@ -2604,7 +2834,7 @@ function OnboardingFlow({ user, status, hasBeta, betaDays, onApplied, onDone }) 
 
 const SECTION_LINKS = [
   ['tab:home', 'Dashboard'], ['tab:directory', 'Directory'], ['tab:events', 'Events'], ['tab:skillswap', 'Skills Swap'],
-  ['tab:shop', 'Shop'], ['tab:resources', 'Resources'], ['tab:benefits', 'Benefits'], ['tab:jobs', 'Jobs'], ['tab:messages', 'Messages'],
+  ['tab:shop', 'Shop'], ['tab:resources', 'Resources'], ['tab:benefits', 'Benefits'], ['tab:messages', 'Messages'],
 ];
 
 function timeAgo(iso) {
@@ -2772,6 +3002,7 @@ const NOTIF_TYPES = [
   ['product_views', 'Product views', 'A daily count when members view your products'],
   ['announcements', 'Announcements', 'News and updates from The Boardroom'],
   ['event_reminders', 'Event reminders', 'A reminder 7 days before an event, in your local time'],
+  ['benefit_alerts', 'Member deals', 'When a shop starts a member deal you can use'],
 ];
 
 function Toggle({ checked, onChange, label }) {
@@ -2792,14 +3023,14 @@ function NotificationSettings({ user }) {
 
   useEffect(() => {
     supabase.from('notification_settings').select('*').eq('user_id', user.id).maybeSingle()
-      .then(({ data }) => setS(data || { profile_views: true, product_views: true, announcements: true, event_reminders: true, push_enabled: true, share_views: true }));
+      .then(({ data }) => setS(data || { profile_views: true, product_views: true, announcements: true, event_reminders: true, benefit_alerts: true, push_enabled: true, share_views: true }));
     currentPushState().then(setPushState);
   }, [user.id]);
 
   async function save(patch) {
     const next = { ...s, ...patch };
     setS(next);
-    const row = { user_id: user.id, profile_views: next.profile_views, product_views: next.product_views, announcements: next.announcements, event_reminders: next.event_reminders, push_enabled: next.push_enabled, share_views: next.share_views, city: (next.city || '').trim().slice(0, 80) || null, country: next.country || null };
+    const row = { user_id: user.id, profile_views: next.profile_views, product_views: next.product_views, announcements: next.announcements, event_reminders: next.event_reminders, benefit_alerts: next.benefit_alerts !== false, push_enabled: next.push_enabled, share_views: next.share_views, city: (next.city || '').trim().slice(0, 80) || null, country: next.country || null };
     const { error } = await supabase.from('notification_settings').upsert(row, { onConflict: 'user_id' });
     if (error) setErr('Could not save that. Please try again.');
   }
@@ -2841,7 +3072,7 @@ function NotificationSettings({ user }) {
       </div>
       <div className="border-t border-ivory/10 pt-4">
         <p className="text-sm text-ivory mb-1">Where you are</p>
-        <p className="text-xs text-ivory/50 mb-3">Used only to remind you about in-person events in your city. We never show it to other members.</p>
+        <p className="text-xs text-ivory/50 mb-3">Used only to remind you about in-person events in your city, and to send you member deals on physical products from your country. We never show it to other members.</p>
         <FField label="Country"><CountrySelect value={s.country || ''} onChange={(v) => save({ country: v })} /></FField>
         <FField label="City or town"><input className={inputCls} maxLength={80} value={s.city || ''} onChange={(e) => setS({ ...s, city: e.target.value })} onBlur={() => save({})} placeholder="e.g. Kingston" /></FField>
       </div>
@@ -3010,7 +3241,7 @@ function Dashboard({ user, profile, status, isApproved, isPaid, betaActive, beta
   const name = firstNameOf(profile, user);
   const tiles = [
     ['directory', 'Directory', Building2], ['resources', 'Resources', FileText], ['skillswap', 'Skills Swap', Users],
-    ['benefits', 'Benefits', Gift], ['jobs', 'Jobs', Briefcase], ['shop', 'Shop', ShoppingBag],
+    ['benefits', 'Benefits', Gift], ['events', 'Events', Calendar], ['shop', 'Shop', ShoppingBag],
   ];
   const weekAgo = Date.now() - 7 * 86400000;
   const recent = (feed || []).filter((f) => new Date(f.at).getTime() >= weekAgo);
@@ -3145,7 +3376,7 @@ function Dashboard({ user, profile, status, isApproved, isPaid, betaActive, beta
   );
 }
 
-/* ---------- Benefits and Jobs ---------- */
+/* ---------- Benefits ---------- */
 
 const BENEFIT_REDEMPTION = [['code', 'Promo code'], ['link', 'Website link'], ['show_screen', 'Show this screen']];
 
@@ -3180,7 +3411,49 @@ function BenefitForm({ onClose, onSaved }) {
   );
 }
 
-function BenefitsTab({ user, onRequireAuth, isAdmin }) {
+function MemberDeals({ user, isPaid, onUpgrade, onRequireAuth, onGo }) {
+  const [deals, setDeals] = useState(null);
+  useEffect(() => {
+    if (!user || !isPaid) { setDeals([]); return; }
+    supabase.rpc('active_member_deals').then(({ data }) => setDeals(data || []));
+  }, [user, isPaid]);
+  if (deals === null) return <Spinner />;
+  function openDealShop(d) {
+    try { localStorage.setItem('tbja_open_shop', d.shop_id); } catch { /* ignore */ }
+    onGo('shop');
+  }
+  return (
+    <div className="mb-8">
+      <h2 className="font-display text-xl text-ivory mb-1">Member deals from shops</h2>
+      <p className="text-xs text-ivory/50 mb-4">Discounts from member shops, for active members only. Applied automatically at checkout.</p>
+      {!user ? (
+        <Card className="p-5 text-sm text-ivory/75">Sign in to see member deals. <button type="button" onClick={onRequireAuth} className="text-gold underline underline-offset-2 min-h-[44px]">Sign in</button></Card>
+      ) : !isPaid ? (
+        <Card className="p-5 text-sm text-ivory/75">Member deals are for active members. <button type="button" onClick={onUpgrade} className="text-gold underline underline-offset-2 min-h-[44px]">Start your free trial</button> to unlock them.</Card>
+      ) : deals.length === 0 ? (
+        <Card className="p-5 text-sm text-ivory/60">No member deals running right now. When a shop starts one you will get a notification.</Card>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {deals.map((d) => (
+            <Card key={d.product_id} className="overflow-hidden flex flex-col">
+              {d.image_url && <img src={d.image_url} alt="" className="w-full h-36 object-cover" />}
+              <div className="p-5 flex flex-col flex-grow">
+                <SectionLabel>{d.category || 'Deal'}</SectionLabel>
+                <h3 className="font-semibold text-lg text-ivory leading-snug">{d.name}</h3>
+                <p className="text-xs text-ivory/55">by {d.shop_name}</p>
+                <p className="mt-2 text-sm"><span className="line-through text-ivory/40 mr-2">{formatMoney(d.price_cents, d.currency)}</span><span className="font-semibold text-mint">{formatMoney(d.deal_price_cents, d.currency)}</span> <span className="ml-1 text-[11px] font-semibold text-navy bg-gold rounded-full px-2.5 py-0.5">{d.deal_percent}% off</span></p>
+                <p className="text-[11px] text-ivory/50 mt-1">Ends {new Date(d.deal_ends_at).toLocaleDateString()}{d.product_type === 'physical' ? ` · Physical item, for buyers in ${d.shop_country || 'the seller\'s country'} only` : ' · Digital'}</p>
+                <div className="mt-4"><GoldButton onClick={() => openDealShop(d)}>View in shop</GoldButton></div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BenefitsTab({ user, onRequireAuth, isAdmin, isPaid, onUpgrade, onGo }) {
   const [rows, setRows] = useState(null);
   const [adding, setAdding] = useState(false);
   const [openId, setOpenId] = useState(null);
@@ -3193,6 +3466,8 @@ function BenefitsTab({ user, onRequireAuth, isAdmin }) {
   if (rows === null) return <Spinner />;
   return (
     <div>
+      <MemberDeals user={user} isPaid={isPaid} onUpgrade={onUpgrade} onRequireAuth={onRequireAuth} onGo={onGo} />
+      <h2 className="font-display text-xl text-ivory mb-3">Partner perks</h2>
       <div className="mb-5 flex items-center justify-between gap-3">
         <p className="text-sm text-ivory/60">Member discounts and perks from partner businesses.</p>
         {isAdmin && <GoldButton onClick={() => setAdding(true)}><Plus size={15} /> Add</GoldButton>}
@@ -3218,70 +3493,6 @@ function BenefitsTab({ user, onRequireAuth, isAdmin }) {
         </div>
       )}
       {adding && <BenefitForm onClose={() => setAdding(false)} onSaved={() => { setAdding(false); load(); }} />}
-    </div>
-  );
-}
-
-function JobForm({ onClose, onSaved }) {
-  const [f, setF] = useState({ title: '', company: '', location: '', category: '', description: '', external_url: '', source_board: '' });
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState('');
-  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
-  async function submit(e) {
-    e.preventDefault();
-    setBusy(true); setErr('');
-    const row = { ...f, category: f.category || null, location: f.location || null, description: f.description || null, source_board: f.source_board || null, is_active: true };
-    const { error } = await supabase.from('jobs').insert(row);
-    setBusy(false);
-    if (error) return setErr(error.message);
-    onSaved();
-  }
-  return (
-    <FormModal title="Add a job" onClose={onClose}>
-      <form onSubmit={submit}>
-        <FField label="Job title" required><input className={inputCls} required value={f.title} onChange={set('title')} /></FField>
-        <FField label="Company" required><input className={inputCls} required value={f.company} onChange={set('company')} /></FField>
-        <FField label="Location"><input className={inputCls} maxLength={200} value={f.location} onChange={set('location')} placeholder="Kingston, or Remote" /></FField>
-        <FField label="Category"><input className={inputCls} value={f.category} onChange={set('category')} /></FField>
-        <FField label="Short description"><textarea className={inputCls} rows={3} value={f.description} onChange={set('description')} /></FField>
-        <FField label="Apply link (https://...)" required><input className={inputCls} required value={f.external_url} onChange={set('external_url')} /></FField>
-        {err && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs mb-3">{err}</p>}
-        <GoldButton type="submit" disabled={busy}>{busy ? <Loader2 className="animate-spin" size={16} /> : 'Save job'}</GoldButton>
-      </form>
-    </FormModal>
-  );
-}
-
-function JobsTab({ isAdmin }) {
-  const [rows, setRows] = useState(null);
-  const [adding, setAdding] = useState(false);
-  const load = useCallback(() => {
-    supabase.from('jobs').select('*').eq('is_active', true).order('created_at', { ascending: false }).then(({ data }) => setRows(data || []));
-  }, []);
-  useEffect(() => { load(); }, [load]);
-  if (rows === null) return <Spinner />;
-  return (
-    <div>
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <p className="text-sm text-ivory/60">Roles and opportunities. Applying happens on the employer's own site.</p>
-        {isAdmin && <GoldButton onClick={() => setAdding(true)}><Plus size={15} /> Add</GoldButton>}
-      </div>
-      {rows.length === 0 ? (
-        <EmptyState icon={Briefcase} title="Jobs are coming soon" body="Roles and opportunities will appear here." />
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {rows.map((j) => (
-            <Card key={j.id} className="p-5 flex flex-col">
-              <SectionLabel>{j.category || 'Job'}</SectionLabel>
-              <h3 className="font-semibold text-lg text-ivory">{j.title}</h3>
-              <p className="text-sm text-ivory/70">{j.company}{j.location ? ` · ${j.location}` : ''}</p>
-              {j.description && <p className="text-sm text-ivory/75 mt-2 mb-4 flex-grow line-clamp-4">{j.description}</p>}
-              {j.external_url && /^https?:\/\//i.test(j.external_url) && <div className="mt-auto"><GoldButton href={j.external_url}>Apply <ExternalLink size={13} /></GoldButton></div>}
-            </Card>
-          ))}
-        </div>
-      )}
-      {adding && <JobForm onClose={() => setAdding(false)} onSaved={() => { setAdding(false); load(); }} />}
     </div>
   );
 }
@@ -3434,7 +3645,7 @@ function AdminTab() {
           <ChevronRight size={16} className="text-ivory/30" />
         </button>
       ))}
-      <p className="text-xs text-ivory/45 pt-2">Benefits and Jobs: open those pages and use the Add button.</p>
+      <p className="text-xs text-ivory/45 pt-2">Benefits: open that page and use the Add button.</p>
       {panel === 'members' && <AdminMembersModal onClose={() => setPanel(null)} />}
       {panel === 'announce' && <AdminAnnounceModal onClose={() => setPanel(null)} />}
       {panel === 'ads' && <AdminAdsModal onClose={() => setPanel(null)} />}
@@ -3453,7 +3664,7 @@ function Drawer({ open, onClose, tab, onGo, user, profile, unread, isAdmin, onAc
   }, [open, onClose]);
   const items = [
     ['home', 'Dashboard', Home], ['directory', 'Directory', Building2], ['events', 'Events', Calendar], ['skillswap', 'Skills Swap', Users],
-    ['shop', 'Shop', ShoppingBag], ['resources', 'Resources', FileText], ['benefits', 'Benefits', Gift], ['jobs', 'Jobs', Briefcase],
+    ['shop', 'Shop', ShoppingBag], ['resources', 'Resources', FileText], ['benefits', 'Benefits', Gift],
     ['messages', 'Messages', Inbox], ['notifications', 'Notifications', Bell],
   ];
   if (isAdmin) items.push(['admin', 'Admin', ShieldCheck]);
@@ -3516,6 +3727,7 @@ function ListingModal({ biz, user, canMessage, onMessage, onClose }) {
           <a href={biz.website_url.startsWith('http') ? biz.website_url : `https://${biz.website_url}`} target="_blank" rel="noopener noreferrer" className="min-h-[44px] inline-flex items-center gap-1 text-sm text-mint hover:underline">Website <ExternalLink size={12} /></a>
         )}
         {canMessage && <GoldButton onClick={onMessage}><MessageCircle size={14} /> Message</GoldButton>}
+        {!canMessage && user && biz.user_id !== user.id && <p className="text-xs text-ivory/50">Messaging opens once this member has an active membership and you have joined the network.</p>}
       </div>
     </FormModal>
   );
@@ -3533,13 +3745,12 @@ const TABS = [
   { key: 'shop', label: 'Shop', short: 'Shop', icon: ShoppingBag, Comp: ShopTab },
   { key: 'resources', label: 'Resources', short: 'Resources', icon: FileText, Comp: ResourcesTab },
   { key: 'benefits', label: 'Benefits', short: 'Benefits', icon: Gift, Comp: BenefitsTab },
-  { key: 'jobs', label: 'Jobs', short: 'Jobs', icon: Briefcase, Comp: JobsTab },
   { key: 'messages', label: 'Messages', short: 'Chat', icon: Inbox, Comp: MessagesTab },
   { key: 'notifications', label: 'Notifications', short: 'Alerts', icon: Bell },
   { key: 'admin', label: 'Admin', short: 'Admin', icon: ShieldCheck },
 ];
 const TAB_KEYS = TABS.map((t) => t.key);
-const DESKTOP_NAV = ['home', 'directory', 'events', 'skillswap', 'shop', 'resources', 'benefits', 'jobs', 'messages'];
+const DESKTOP_NAV = ['home', 'directory', 'events', 'skillswap', 'shop', 'resources', 'benefits', 'messages'];
 const BOTTOM_NAV = ['home', 'events', 'shop', 'resources', 'messages'];
 
 export default function App() {
@@ -3550,6 +3761,7 @@ export default function App() {
   const [upgrading, setUpgrading] = useState(false);
   const [membershipNotice, setMembershipNotice] = useState(null); // 'success' | 'cancelled' | null
   const [orderNotice, setOrderNotice] = useState(null); // 'success' | 'cancelled' | null
+  const [ticketNotice, setTicketNotice] = useState(null);
   const [connectReturn, setConnectReturn] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
   const [rootLegal, setRootLegal] = useState(null);
@@ -3627,6 +3839,12 @@ export default function App() {
       goTab('shop');
       params.delete('order');
     }
+    const ticketResult = params.get('ticket');
+    if (ticketResult === 'success' || ticketResult === 'cancelled') {
+      setTicketNotice(ticketResult);
+      goTab('events');
+      params.delete('ticket');
+    }
     const connectResult = params.get('connect');
     if (connectResult === 'return' || connectResult === 'refresh') {
       setConnectReturn(true);
@@ -3635,7 +3853,7 @@ export default function App() {
     }
     const openParam = params.get('open');
     if (openParam) { params.delete('open'); pendingLink.current = openParam; }
-    if (result || orderResult || connectResult || openParam) {
+    if (result || orderResult || ticketResult || connectResult || openParam) {
       const rest = params.toString();
       window.history.replaceState({}, '', window.location.pathname + (rest ? `?${rest}` : ''));
     }
@@ -3759,7 +3977,7 @@ export default function App() {
   const active = TABS.find((t) => t.key === (tab === 'admin' && !isAdmin ? 'home' : tab)) || TABS[0];
   const ActiveComp = active.Comp;
   const onHome = active.key === 'home';
-  const common = { user, onRequireAuth: () => setShowAuth(true), openPanel: connectReturn, isPaid, onUpgrade: handleUpgradeClick, isApproved, status, onApply: handleApply, isAdmin };
+  const common = { user, onRequireAuth: () => setShowAuth(true), openPanel: connectReturn, isPaid, onUpgrade: handleUpgradeClick, isApproved, status, onApply: handleApply, isAdmin, onGo: goTab };
   const dismissPushCard = () => { try { localStorage.setItem(`tbja_pushno_${user.id}`, '1'); } catch { /* ignore */ } setPushCard(false); };
 
   const statusChips = (
@@ -3895,6 +4113,15 @@ export default function App() {
           <div className="max-w-5xl mx-auto px-4 py-2 text-center text-xs text-ivory font-medium flex items-center justify-center gap-2">
             Checkout was cancelled. No payment was taken.
             <button onClick={() => setMembershipNotice(null)} aria-label="Dismiss" className="w-11 h-11 flex items-center justify-center text-ivory/70 hover:text-ivory"><X size={13} /></button>
+          </div>
+        </div>
+      )}
+
+      {ticketNotice && (
+        <div className={ticketNotice === 'success' ? 'bg-gold/20 border-b border-gold/40' : 'bg-wine border-b border-wine'}>
+          <div className={`max-w-5xl mx-auto px-4 py-2 text-center text-xs font-medium flex items-center justify-center gap-2 ${ticketNotice === 'success' ? 'text-gold' : 'text-ivory'}`}>
+            {ticketNotice === 'success' ? 'Thank you! Your ticket is confirmed. Check your email for the receipt.' : 'Checkout was cancelled. No payment was taken.'}
+            <button onClick={() => setTicketNotice(null)} aria-label="Dismiss" className="w-11 h-11 flex items-center justify-center"><X size={13} /></button>
           </div>
         </div>
       )}
