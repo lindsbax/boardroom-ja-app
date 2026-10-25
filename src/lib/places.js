@@ -14,3 +14,19 @@ export const REGIONS = {
 };
 
 export const regionLabel = (country) => (REGIONS[country] ? REGIONS[country].label : 'State, region or city');
+
+// Selling currencies: pounds for the UK, euros for euro-area countries, US dollars everywhere else.
+export const SELL_CURRENCIES = ['USD', 'GBP', 'EUR'];
+const EURO_AREA = new Set(['Ireland', 'France', 'Germany', 'Spain', 'Italy', 'Netherlands', 'Belgium', 'Portugal', 'Austria', 'Finland', 'Greece', 'Luxembourg', 'Malta', 'Cyprus', 'Slovakia', 'Slovenia', 'Estonia', 'Latvia', 'Lithuania', 'Croatia']);
+export const currencyForCountry = (country) => (country === 'United Kingdom' ? 'GBP' : EURO_AREA.has(country) ? 'EUR' : 'USD');
+export const CURRENCY_LABELS = { USD: 'US dollars (USD)', GBP: 'Pounds (GBP)', EUR: 'Euros (EUR)' };
+
+// Messages cannot carry contact details (keeps sales on the platform). The database enforces the same rule.
+export function contactDetailsIn(text) {
+  let t = String(text || '').toLowerCase();
+  ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'].forEach((w, i) => { t = t.replace(new RegExp(`\\b${w}\\b`, 'g'), String(i)); });
+  return /([0-9][ .()+-]{0,2}){7,}/.test(t)
+    || /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/.test(t)
+    || /(whats ?app|telegram|wa\.me|t\.me\/|signal app)/.test(t)
+    || /\b(gmail|hotmail|yahoo|outlook|icloud)\b/.test(t);
+}

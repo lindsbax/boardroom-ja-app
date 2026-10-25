@@ -3,7 +3,7 @@ export const PAYMENT_TERMS_DAYS = 30;
 
 export const SELLER_TERMS_TEXT = `# The Boardroom: Seller and Organizer Terms
 
-**Last updated: October 20, 2026**
+**Last updated: October 21, 2026**
 **Operated by: Women's Boardroom Network Limited, a company registered in Jamaica**
 **Contact: lindsay@baxteradvisory.co.uk**
 
@@ -44,7 +44,7 @@ Stripe sets and can change these fees. The current rates are on stripe.com/gb/pr
 We pay you within 30 days.
 
 - **Products and services:** within 30 days of the sale.
-- **Ticketed events:** within 30 days of the event date, so that refunds for cancelled or changed events can be handled first.
+- **Ticketed events:** 30 days after the sale, or 7 days after the event, whichever is later, so that refunds for cancelled or changed events can be handled first.
 
 Each payout comes with a statement showing the sale price, Stripe fees, our 10% commission and the amount paid to you. If you are paid through Stripe Connect, payouts follow the 30 day timeline and then Stripe's own payout schedule for your bank.
 
@@ -68,7 +68,11 @@ You are responsible for refunds, cancellations and disputes on what you sell. If
 - Your listing must be accurate and you must have the right to sell what you list.
 - You must deliver what you sold, run the event as described, and respond to buyers promptly.
 - You are responsible for your own taxes, licences, insurance and consumer-law obligations in your country, including any sales tax or VAT.
-- You must not list illegal, unsafe, counterfeit, misleading or adult content, or anything that breaches someone else's rights.
+- You must not list illegal, unsafe, counterfeit, misleading, sexual or adult content, or anything that breaches someone else's rights.
+- You may sell in US dollars, pounds or euros. Buyers pay in the currency you choose.
+- Event tickets are not refundable once bought, unless you cancel or materially change the event. If you do, you must refund buyers in full.
+- If you run a member deal, the discount comes out of your sale price before our commission is worked out. Deals are shown to active members in Benefits and we may notify them. Physical product deals are limited to members in your country. You may start one deal notification per week.
+- Do not use our messages to share phone numbers, email addresses or other chat apps, or to take a sale away from the Platform to avoid our commission.
 
 ## 9. Your refund policy and local law
 
@@ -91,9 +95,9 @@ When a buyer places an order, we email you their name, email address and, where 
 
 For these orders you are responsible for the personal data once we have passed it to you. A buyer may ask you to correct or delete their details and you must respond within the time the law allows. If you break this section we can remove your shop and withhold payouts while we investigate.
 
-## 11. Review and removal
+## 11. Publishing, responsibility and removal
 
-Shops and listings are reviewed before they appear. We can decline, edit or remove a listing, and withhold payouts while we investigate fraud, a breach of these terms or a dispute.
+Shops, products and events go live as soon as you save them. We do not review or approve them first, and publishing is not our endorsement. You alone are responsible for what you list and sell. Women's Boardroom Network Limited (The Boardroom) is not responsible for the items, services or events members list. We reserve the right to review, edit, decline or remove any shop or listing at any time, without notice, and to withhold payouts while we investigate fraud, a breach of these terms, sexual or adult content, or a dispute.
 
 ## 12. Liability
 
@@ -110,4 +114,54 @@ These terms are governed by the laws of Jamaica, subject to any mandatory protec
 ## 15. Changes
 
 We may update these terms. We will give at least 30 days' notice of any change to the commission rate or payment terms, and it will not apply to sales made before the change.
+`;
+
+export const BETA_NDA_VERSION = '2026-10-v1';
+
+export const BETA_NDA_TEXT = `# The Boardroom: Beta Tester Confidentiality Agreement
+
+**Version: October 2026**
+**Between: Women's Boardroom Network Limited, a company registered in Jamaica ("The Boardroom"), and you, the beta tester ("you")**
+
+## 1. Why this exists
+
+You are being given early access to The Boardroom before it is open to the public. This short agreement keeps what you see private while we finish building it.
+
+## 2. What is confidential
+
+Everything you see or learn through the beta that is not already public, including features, screens, designs, pricing, fees, commission rates, member deals, the business plan, other testers' identities and activity, and any bugs or problems you find. This is "Confidential Information".
+
+## 3. What you agree to
+
+- Keep Confidential Information private and use it only to test and give feedback.
+- Do not share, post, screenshot, record or describe the app, publicly or privately, to anyone outside the beta group.
+- Do not copy the app, its design or its ideas to build or help build a competing product.
+- Do not share your invite code or let anyone else use your account.
+- Tell us promptly if you think something has leaked.
+
+## 4. What is not covered
+
+Information that is public through no fault of yours, that you already knew, or that you are legally required to disclose (tell us first if the law allows).
+
+## 5. Your feedback
+
+We welcome it. You agree that we may use any feedback, ideas or suggestions you give us freely and without payment or credit. Testing is voluntary and unpaid unless we agree otherwise in writing.
+
+## 6. How long this lasts
+
+For 12 months from the date you accept, or until we launch publicly and tell you a feature is no longer confidential, whichever is earlier for that feature.
+
+## 7. Your personal data
+
+How we handle your personal data is set out in our Privacy Policy, not in this agreement.
+
+## 8. If it is broken
+
+We may remove your access at any time. Breach of this agreement may cause us harm that money alone cannot fix, so we may also ask a court for an order to stop it, in addition to any other remedy.
+
+## 9. Law
+
+This agreement is governed by the laws of Jamaica, and the courts of Jamaica have jurisdiction.
+
+By ticking the box when you create your account, you accept this agreement. We record the date and time.
 `;
