@@ -30,3 +30,10 @@ export function contactDetailsIn(text) {
     || /(whats ?app|telegram|wa\.me|t\.me\/|signal app)/.test(t)
     || /\b(gmail|hotmail|yahoo|outlook|icloud)\b/.test(t);
 }
+
+export const INQUIRY_INDUSTRIES = [
+  'Accounting & Finance', 'Legal', 'Marketing & PR', 'Design & Creative', 'Technology', 'Events & Hospitality',
+  'Food & Beverage', 'Beauty & Wellness', 'Fashion & Retail', 'Education & Training', 'Health & Medical', 'Real Estate',
+  'Construction', 'Agriculture', 'Logistics & Shipping', 'Tourism & Travel', 'Media & Content', 'Consulting',
+  'Manufacturing', 'Photography', 'Print & Packaging', 'Non-profit', 'Energy', 'Security',
+];
