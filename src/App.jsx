@@ -132,7 +132,7 @@ const inputCls = 'w-full px-4 py-3 rounded-xl border border-ivory/15 bg-navy/50 
 --------------------------------------------------------- */
 
 function AuthModal({ onClose, onAuthed, startMode = 'signup' }) {
-  const [mode, setMode] = useState(startMode);
+  const [mode, setMode] = useState(startMode === 'signup' ? 'intro' : startMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -141,6 +141,7 @@ function AuthModal({ onClose, onAuthed, startMode = 'signup' }) {
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [agreedPrivacy, setAgreedPrivacy] = useState(false);
   const [agreedNda, setAgreedNda] = useState(false);
+  const [agreedWoman, setAgreedWoman] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
   const [showLegal, setShowLegal] = useState(null); // 'terms' | 'privacy' | 'nda' | null
   const [resetSent, setResetSent] = useState(false);
@@ -156,20 +157,20 @@ function AuthModal({ onClose, onAuthed, startMode = 'signup' }) {
     setResetSent(true);
   }
 
-  const needsConsent = mode === 'signup' && (!agreedTerms || !agreedPrivacy || !agreedNda);
+  const needsConsent = mode === 'signup' && (!agreedTerms || !agreedPrivacy || !agreedNda || !agreedWoman);
 
   async function handleSubmit(e) {
     e.preventDefault();
     if (mode === 'forgot') return sendReset(e);
     setError('');
     if (needsConsent) {
-      setError('Please agree to the Terms of Use, Privacy Policy and Beta Confidentiality Agreement to continue.');
+      setError('Please tick all the boxes to continue.');
       return;
     }
     setLoading(true);
     try {
       if (mode === 'signup') {
-        const { data, error: signErr } = await supabase.auth.signUp({ email, password, options: { data: { invite_code: inviteCode.trim(), beta_nda: 'accepted', nda_version: BETA_NDA_VERSION } } });
+        const { data, error: signErr } = await supabase.auth.signUp({ email, password, options: { data: { invite_code: inviteCode.trim(), beta_nda: 'accepted', nda_version: BETA_NDA_VERSION, woman_declared: 'yes' } } });
         if (signErr) throw signErr;
         if (data.user) {
           await supabase.from('profiles').upsert({ id: data.user.id, full_name: fullName });
@@ -182,7 +183,7 @@ function AuthModal({ onClose, onAuthed, startMode = 'signup' }) {
       onClose();
     } catch (err) {
       setError(/database error saving new user/i.test(err.message || '')
-        ? 'We could not create this account. Please check your invite code is correct, or contact us if you think this is a mistake.'
+        ? 'We could not create this account. Please use your regular email address (temporary email services are not accepted) and check any invite code, or contact us if you think this is a mistake.'
         : /invalid login/i.test(err.message || '')
         ? 'That email and password do not match. Check them and try again, or choose "Forgot your password?" below.'
         : /not confirmed/i.test(err.message || '')
@@ -200,7 +201,23 @@ function AuthModal({ onClose, onAuthed, startMode = 'signup' }) {
           <X size={18} />
         </button>
         <Logo className="h-10 mb-6" />
+        {mode === 'intro' && (
+          <div>
+            <p className="text-[11px] font-semibold tracking-[0.16em] uppercase text-gold mb-1">Become a founding member</p>
+            <h2 className="font-display text-xl text-ivory mb-3">The network for women in business</h2>
+            <ul className="text-sm text-ivory/85 space-y-2 mb-5">
+              {['Sell your products and services in the Shop', 'List your business in the Directory', 'Chat with other members', 'Swap skills with other members', 'Ask the network your questions in Inquiries', 'Create promotions and member deals', 'Host events and share resources'].map((b) => (
+                <li key={b} className="flex items-start gap-2"><Check size={15} className="text-gold mt-0.5 shrink-0" /><span>{b}</span></li>
+              ))}
+            </ul>
+            <GoldButton onClick={() => setMode('signup')}>Start free trial</GoldButton>
+            <p className="text-[11px] text-ivory/55 mt-2">14 days of full membership free, then US$5.99/month. Cancel any time. For women, including trans women.</p>
+            <button type="button" onClick={onClose} className="mt-4 min-h-[44px] text-sm text-ivory/70 hover:text-ivory underline underline-offset-2">I just want to browse and buy</button>
+            <button type="button" onClick={() => { setMode('signin'); setError(''); }} className="block min-h-[44px] text-xs text-mint hover:underline font-sans">Already a member? Sign in</button>
+          </div>
+        )}
         {mode === 'signup' && <p className="text-[11px] font-semibold tracking-[0.16em] uppercase text-gold mb-1">Become a founding member</p>}
+        {mode !== 'intro' && (<>
         <h2 className="font-display text-xl text-ivory mb-1">
           {mode === 'signup' ? 'Create your account' : mode === 'forgot' ? 'Reset your password' : 'Welcome back'}
         </h2>
@@ -246,6 +263,10 @@ function AuthModal({ onClose, onAuthed, startMode = 'signup' }) {
           {mode === 'signup' && (
             <div className="space-y-2 pt-1">
               <label className="flex items-start gap-2 text-xs text-ivory/80">
+                <input type="checkbox" checked={agreedWoman} onChange={(e) => setAgreedWoman(e.target.checked)} className="mt-0.5" />
+                <span>I confirm that I am a woman (including trans women) and that what I tell you is true.</span>
+              </label>
+              <label className="flex items-start gap-2 text-xs text-ivory/80">
                 <input type="checkbox" checked={agreedTerms} onChange={(e) => setAgreedTerms(e.target.checked)} className="mt-0.5" />
                 <span>
                   I agree to the{' '}
@@ -280,11 +301,12 @@ function AuthModal({ onClose, onAuthed, startMode = 'signup' }) {
         )}
         <button
           type="button"
-          onClick={() => { setMode(mode === 'signup' || mode === 'forgot' ? 'signin' : 'signup'); setError(''); setResetSent(false); }}
+          onClick={() => { setMode(mode === 'signup' || mode === 'forgot' ? 'signin' : 'intro'); setError(''); setResetSent(false); }}
           className="mt-4 min-h-[44px] text-xs text-mint hover:underline font-sans"
         >
           {mode === 'forgot' ? 'Back to sign in' : mode === 'signup' ? 'Already a member? Sign in' : 'New here? Become a founding member'}
         </button>
+        </>)}
       </div>
 
       {showLegal === 'terms' && (
@@ -495,7 +517,7 @@ function AccountModal({ user, profile, betaActive, betaDaysLeft, onSubscribe, on
   const [showAdmin, setShowAdmin] = useState(false);
   const accessLabel = profile?.member_status === 'approved' ? 'Network member' : profile?.member_status === 'pending' ? 'Application under review' : profile?.member_status === 'declined' ? 'Application not approved' : 'Buyer access (browse the Directory and buy from the Shop)';
   const betaEnded = !!profile?.trial_ends_at && !betaActive && profile?.membership_tier !== 'paid' && !profile?.membership_status;
-  const planLabel = betaActive ? `Beta trial, full membership (${betaDaysLeft} ${betaDaysLeft === 1 ? 'day' : 'days'} left, no card taken)` : betaEnded ? 'Free (beta trial ended)' : profile?.membership_status === 'trialing' ? 'Free trial (full membership)' : profile?.membership_tier === 'paid' ? 'Member' : profile?.membership_status === 'canceled' ? 'Free (membership ended)' : 'Free';
+  const planLabel = betaActive ? `Beta trial, full membership (${betaDaysLeft} ${betaDaysLeft === 1 ? 'day' : 'days'} left, no card taken)` : betaEnded ? 'No active membership (beta trial ended)' : profile?.membership_status === 'trialing' ? 'Free trial (full membership)' : profile?.membership_tier === 'paid' ? 'Member' : profile?.membership_status === 'canceled' ? 'No active membership (ended)' : 'No active membership';
 
   async function manageBilling() {
     setBillBusy(true); setBillErr('');
@@ -798,6 +820,10 @@ function ListBusinessForm({ user, existing, onClose, onSaved, onboarding = false
       : await supabase.from('business_directory').insert({ user_id: user.id, ...listing });
     setSaving(false);
     if (e2) return setError(e2.message);
+    if (consent) {
+      const { data: chk } = await supabase.from('business_directory').select('is_active').eq('user_id', user.id).maybeSingle();
+      if (chk && chk.is_active === false) window.alert('Saved. Your listing contains a link or wording that we check by hand, so it will appear in the Directory once we have reviewed it.');
+    }
     onSaved();
     if (!onboarding) onClose();
   }
@@ -2773,7 +2799,18 @@ function OnboardingFlow({ user, status, hasBeta, betaDays, onApplied, onDone }) 
     let live = true;
     supabase.from('business_private').select('user_id').eq('user_id', user.id).maybeSingle().then(({ data }) => {
       if (!live) return;
-      if (status === 'unconfirmed') setStep('eligibility');
+      if (status === 'unconfirmed' && user.user_metadata?.woman_declared === 'yes') {
+        setBusy(true);
+        supabase.rpc('apply_for_membership').then(({ data: r, error: e }) => {
+          if (!live) return;
+          setBusy(false);
+          if (e) return setStep('eligibility');
+          setSt(r || 'pending');
+          if (onApplied) onApplied();
+          setStep('details');
+        });
+      }
+      else if (status === 'unconfirmed') setStep('eligibility');
       else if (status === 'declined') setStep('declined');
       else if (!data) setStep('details');
       else if (status === 'approved') setStep(hasBeta ? 'beta' : 'trial');
@@ -2842,7 +2879,7 @@ function OnboardingFlow({ user, status, hasBeta, betaDays, onApplied, onDone }) 
           <li>Other members can message you from the Directory</li>
           <li>You can open a shop and list your products</li>
         </ul>
-        <p className="text-xs text-ivory/60 mb-4">Thank you for helping us find bugs. Please tell us about anything that looks wrong. When the trial ends you drop back to free access unless you subscribe (US$5.99 per month, cancel any time). You will never be charged unless you choose to subscribe.</p>
+        <p className="text-xs text-ivory/60 mb-4">Thank you for helping us find bugs. Please tell us about anything that looks wrong. When the trial ends your membership stops unless you subscribe (US$5.99 per month, cancel any time). You will never be charged unless you choose to subscribe.</p>
         <GoldButton onClick={onDone}>Start exploring</GoldButton>
       </FormModal>
     );
@@ -2864,11 +2901,11 @@ function OnboardingFlow({ user, status, hasBeta, betaDays, onApplied, onDone }) 
         <li>Other members can message you from the Directory</li>
         <li>Open a shop and list your products</li>
       </ul>
-      <p className="text-xs text-ivory/60 mb-4">Everything else stays free: your Directory listing, sending messages, Skillswap, Events and Resources.</p>
+      <p className="text-xs text-ivory/60 mb-4">Your membership also covers your Directory listing, messaging, Skillswap, Inquiries, Events, Resources and member promotions.</p>
       <GoldButton onClick={startTrial} disabled={busy}>{busy ? <Loader2 className="animate-spin" size={16} /> : 'Start free trial'}</GoldButton>
       <p className="text-[11px] text-ivory/50 mt-2">{SOFT_GOLD_NOTE} You will see the exact date your card is first charged before you confirm.</p>
       {err && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs mt-3">{err}</p>}
-      <button onClick={onDone} className="mt-4 text-sm text-ivory/60 hover:text-ivory underline underline-offset-2">Continue with free access</button>
+      <button onClick={onDone} className="mt-4 text-sm text-ivory/60 hover:text-ivory underline underline-offset-2">Not now</button>
     </FormModal>
   );
 }
@@ -3315,7 +3352,7 @@ function Dashboard({ user, profile, status, isApproved, isPaid, betaActive, beta
         {!user ? (
           <div className="mt-3 rounded-2xl bg-gold/10 border border-gold/30 p-4">
             <p className="text-[11px] font-semibold tracking-[0.16em] uppercase text-gold">Become a founding member</p>
-            <p className="text-sm text-ivory/85 mt-1 mb-3">A network for women in business. Browse everything for free. Join to list your business, open a shop, post events, swap skills and ask the network.</p>
+            <p className="text-sm text-ivory/85 mt-1 mb-3">A paid membership network for women in business. Start your 14 day free trial to list your business, open a shop, post events, swap skills and ask the network.</p>
             <GoldButton onClick={() => onRequireAuth('signup')}>Start free trial</GoldButton>
             <div><button type="button" onClick={() => onRequireAuth('signin')} className="mt-2 min-h-[44px] text-xs text-ivory/70 underline underline-offset-2">Already a member? Sign in</button></div>
           </div>
@@ -3326,7 +3363,7 @@ function Dashboard({ user, profile, status, isApproved, isPaid, betaActive, beta
             {status === 'declined' && <span>Your application was not approved.</span>}
             {isApproved && betaActive && <span className="inline-flex items-center gap-1.5 text-gold"><Crown size={14} /> Beta member, {betaDaysLeft} {betaDaysLeft === 1 ? 'day' : 'days'} left</span>}
             {isApproved && !betaActive && isPaid && <span className="inline-flex items-center gap-1.5 text-gold"><Crown size={14} /> Member</span>}
-            {isApproved && !isPaid && !IS_NATIVE_APP && (<><span>Free member.</span><button type="button" onClick={onUpgrade} className="min-h-[44px] text-gold font-semibold underline underline-offset-2">{profile?.membership_status || profile?.trial_ends_at ? 'Subscribe' : 'Start free trial'}</button></>)}
+            {isApproved && !isPaid && !IS_NATIVE_APP && (<><span>No active membership.</span><button type="button" onClick={onUpgrade} className="min-h-[44px] text-gold font-semibold underline underline-offset-2">{profile?.membership_status || profile?.trial_ends_at ? 'Subscribe' : 'Start free trial'}</button></>)}
           </div>
         )}
       </section>
@@ -3677,10 +3714,55 @@ function AdminAdsModal({ onClose }) {
   );
 }
 
+function AdminHoldsModal({ onClose }) {
+  const [rows, setRows] = useState(null);
+  const [err, setErr] = useState('');
+  const [busyId, setBusyId] = useState(null);
+  const load = useCallback(async () => {
+    setRows(null); setErr('');
+    const { data, error } = await supabase.rpc('admin_held_listings');
+    if (error) { setErr(error.message); setRows([]); return; }
+    setRows(data || []);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  async function decide(r, approve) {
+    setBusyId(r.user_id); setErr('');
+    const { error } = await supabase.rpc('admin_resolve_hold', { p_uid: r.user_id, p_approve: approve });
+    setBusyId(null);
+    if (error) return setErr(error.message);
+    load();
+  }
+  return (
+    <FormModal title="Held listings" onClose={onClose}>
+      <p className="text-xs text-ivory/60 mb-4">These Directory listings were hidden automatically because they looked unusual. Approve the real ones. Reject the rest, and decline the member under Review applications if needed.</p>
+      {err && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs mb-3">{err}</p>}
+      {rows === null ? <Spinner /> : rows.length === 0 ? <p className="text-sm text-ivory/50">Nothing is waiting.</p> : (
+        <div className="space-y-3">
+          {rows.map((r) => (
+            <div key={r.user_id} className="rounded-2xl bg-navy/50 p-4 text-sm">
+              <p className="font-semibold text-ivory">{r.business_name}</p>
+              <p className="text-ivory/75">{r.full_name || 'No name given'} · {r.email}</p>
+              <p className="text-xs text-gold mt-1">Why held: {r.reason}</p>
+              {r.category && <p className="text-xs text-ivory/55 mt-1">{r.category}</p>}
+              {r.description && <p className="text-xs text-ivory/70 mt-2 whitespace-pre-line">{r.description}</p>}
+              {r.website_url && <p className="text-xs text-ivory/55 mt-1 break-all">Website: {r.website_url}</p>}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3">
+                <GoldButton onClick={() => decide(r, true)} disabled={busyId === r.user_id}>Approve</GoldButton>
+                <button onClick={() => decide(r, false)} disabled={busyId === r.user_id} className="text-sm text-[#F2B8C2] hover:text-rose underline underline-offset-2 min-h-[44px]">Reject</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </FormModal>
+  );
+}
+
 function AdminTab() {
   const [panel, setPanel] = useState(null);
   const items = [
     ['members', 'Review applications', 'Approve, decline, or give a 14 day beta trial.', ShieldCheck],
+    ['holds', 'Held listings', 'Directory listings that looked unusual. Approve or reject.', Flag],
     ['announce', 'Send an announcement', 'Notify every member, with an optional dashboard banner.', Megaphone],
     ['ads', 'Dashboard ads', 'Add up to 4 rotating ads that link to a site or a page.', Tag],
   ];
@@ -3695,6 +3777,7 @@ function AdminTab() {
       ))}
       <p className="text-xs text-ivory/45 pt-2">Benefits: open that page and use the Add button.</p>
       {panel === 'members' && <AdminMembersModal onClose={() => setPanel(null)} />}
+      {panel === 'holds' && <AdminHoldsModal onClose={() => setPanel(null)} />}
       {panel === 'announce' && <AdminAnnounceModal onClose={() => setPanel(null)} />}
       {panel === 'ads' && <AdminAdsModal onClose={() => setPanel(null)} />}
     </div>
@@ -4195,6 +4278,13 @@ export default function App() {
   }, []);
 
   const [flowOpen, setFlowOpen] = useState(false);
+  // Signed-out visitors see the join pop-up once per visit; "I just want to browse and buy" closes it.
+  useEffect(() => {
+    if (user !== null) return;
+    let seen = false;
+    try { seen = sessionStorage.getItem('tbja_welcome') === '1'; sessionStorage.setItem('tbja_welcome', '1'); } catch { /* ignore */ }
+    if (!seen) setShowAuth('signup');
+  }, [user]);
   const [recovery, setRecovery] = useState(false);
   const status = user ? (profile ? (profile.member_status || 'unconfirmed') : null) : 'unconfirmed';
   const isApproved = status === 'approved';
