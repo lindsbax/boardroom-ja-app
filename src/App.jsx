@@ -3,14 +3,14 @@ import { supabase } from './lib/supabase';
 import { pushSupported, isIOS, isInstalledApp, currentPushState, enablePush, disablePush } from './lib/push';
 import { PRIVACY_POLICY_TEXT, TERMS_OF_USE_TEXT } from './lib/legalText';
 import { SELLER_TERMS_TEXT, COMMISSION_PCT, PAYMENT_TERMS_DAYS, BETA_NDA_TEXT, BETA_NDA_VERSION } from './lib/sellerTerms';
-import { REGIONS, regionLabel, SELL_CURRENCIES, currencyForCountry, CURRENCY_LABELS, contactDetailsIn } from './lib/places';
+import { REGIONS, regionLabel, SELL_CURRENCIES, currencyForCountry, CURRENCY_LABELS, contactDetailsIn, INQUIRY_INDUSTRIES } from './lib/places';
 import { COUNTRIES, REFUND_POLICIES, REFUND_OPTIONS, STATUTORY_NOTE, scheduleFor, needsDigitalWaiver, payoutRoute, MIN_PAYOUT } from './lib/legalSchedules';
 import {
   Calendar, Users, ShoppingBag, FileText, LogIn, LogOut,
   MapPin, X, Download, ExternalLink, Loader2, Sparkles, Building2,
   MessageCircle, Send, Search, ShieldCheck, Inbox, Plus, Crown,
   Shirt, Utensils, Home, Palette, Briefcase, GraduationCap, Printer, Package, Store, Truck, ArrowLeft, TrendingUp, Check, Star, Flag, Ban, User, Trash2, Lock,
-  Menu, Bell, BellRing, ChevronRight, Gift, Megaphone, Eye, CalendarClock, CheckCheck, Settings, Tag
+  Menu, Bell, BellRing, ChevronRight, Gift, Megaphone, Eye, CalendarClock, CheckCheck, Settings, Tag, HelpCircle
 } from 'lucide-react';
 
 /* ---------------------------------------------------------
@@ -131,8 +131,8 @@ const inputCls = 'w-full px-4 py-3 rounded-xl border border-ivory/15 bg-navy/50 
    Auth
 --------------------------------------------------------- */
 
-function AuthModal({ onClose, onAuthed }) {
-  const [mode, setMode] = useState('signin');
+function AuthModal({ onClose, onAuthed, startMode = 'signup' }) {
+  const [mode, setMode] = useState(startMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -200,11 +200,12 @@ function AuthModal({ onClose, onAuthed }) {
           <X size={18} />
         </button>
         <Logo className="h-10 mb-6" />
+        {mode === 'signup' && <p className="text-[11px] font-semibold tracking-[0.16em] uppercase text-gold mb-1">Become a founding member</p>}
         <h2 className="font-display text-xl text-ivory mb-1">
           {mode === 'signup' ? 'Create your account' : mode === 'forgot' ? 'Reset your password' : 'Welcome back'}
         </h2>
         <p className="text-sm text-ivory/60 mb-6">
-          {mode === 'forgot' ? 'Enter your email and we will send you a link to set a new password.' : 'Beta. Join the room: 14 days of full membership free, then US$5.99/month. Cancel any time.'}
+          {mode === 'forgot' ? 'Enter your email and we will send you a link to set a new password.' : mode === 'signup' ? 'For women in business. 14 days of full membership free, then US$5.99/month. Cancel any time. Not ready? Close this and keep browsing.' : 'Sign in to your account.'}
         </p>
         {mode === 'forgot' && resetSent ? (
           <div>
@@ -270,7 +271,7 @@ function AuthModal({ onClose, onAuthed }) {
 
           {error && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs">{error}</p>}
           <GoldButton type="submit" disabled={loading || needsConsent}>
-            {loading ? <Loader2 className="animate-spin" size={16} /> : (mode === 'signup' ? 'Sign up' : mode === 'forgot' ? 'Send reset link' : 'Sign in')}
+            {loading ? <Loader2 className="animate-spin" size={16} /> : (mode === 'signup' ? 'Start free trial' : mode === 'forgot' ? 'Send reset link' : 'Sign in')}
           </GoldButton>
         </form>
         )}
@@ -282,7 +283,7 @@ function AuthModal({ onClose, onAuthed }) {
           onClick={() => { setMode(mode === 'signup' || mode === 'forgot' ? 'signin' : 'signup'); setError(''); setResetSent(false); }}
           className="mt-4 min-h-[44px] text-xs text-mint hover:underline font-sans"
         >
-          {mode === 'signup' || mode === 'forgot' ? 'Back to sign in' : "New here? Create an account"}
+          {mode === 'forgot' ? 'Back to sign in' : mode === 'signup' ? 'Already a member? Sign in' : 'New here? Become a founding member'}
         </button>
       </div>
 
@@ -1047,6 +1048,7 @@ function DirectoryTab({ user, onRequireAuth, isPaid, onUpgrade, isApproved, stat
         <ListingModal
           biz={detail}
           user={user}
+          isApproved={isApproved}
           canMessage={!!user && detail.user_id !== user.id && messageable.has(detail.user_id)}
           onMessage={() => { const b = detail; setDetail(null); handleMessageClick(b); }}
           onClose={() => setDetail(null)}
@@ -1098,13 +1100,12 @@ function MessagesTab({ user, onRequireAuth, isApproved, status, onApply }) {
   if (!user) {
     return (
       <div className="text-center py-16">
-        <EmptyState icon={Inbox} title="Sign in to view messages" body="Your conversations with other members will appear here." />
-        <GoldButton onClick={onRequireAuth}>Sign in</GoldButton>
+        <EmptyState icon={Inbox} title="Create an account to message" body="Your conversations with sellers and members will appear here." />
+        <GoldButton onClick={() => onRequireAuth('signup')}>Start free trial</GoldButton>
       </div>
     );
   }
 
-  if (!isApproved) return <MembersOnlyNotice status={status} onApply={onApply} what="Messaging" />;
   if (conversations === null) return <Spinner />;
   if (conversations.length === 0) {
     return <EmptyState icon={Inbox} title="No messages yet" body="Message a business from the Directory to start a conversation." />;
@@ -1420,7 +1421,7 @@ function EventsTab({ user, onRequireAuth, isAdmin, isApproved, status, onApply }
   const listBar = (
     <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <p className="text-sm text-ivory/60">Hosting something? It's free to list your event.</p>
-      <GoldButton onClick={() => (!user ? onRequireAuth() : (isApproved || isAdmin) ? setShowForm(true) : status === 'unconfirmed' ? onApply() : null)}><Plus size={15} /> {!user || isApproved || isAdmin ? 'List an event' : status === 'pending' ? 'Application pending' : status === 'declined' ? 'Not available' : 'Join to list an event'}</GoldButton>
+      <GoldButton onClick={() => ((user && (isApproved || isAdmin)) ? setShowForm(true) : onRequireAuth())}><Plus size={15} /> List an event</GoldButton>
     </div>
   );
   const formModal = showForm && (
@@ -1510,7 +1511,7 @@ function SkillswapTab({ user, onRequireAuth, isApproved, status, onApply }) {
 
   async function handlePost(e) {
     e.preventDefault();
-    if (!user) return onRequireAuth();
+    if (!user || !isApproved) return onRequireAuth();
     if (!skillInput.trim()) return;
     setPosting(true);
     const table = view === 'offers' ? 'skill_offers' : 'skill_wants';
@@ -1532,7 +1533,6 @@ function SkillswapTab({ user, onRequireAuth, isApproved, status, onApply }) {
 
   const list = view === 'offers' ? offers : wants;
 
-  if (!isApproved) return <MembersOnlyNotice status={status} onApply={onApply} what="Skillswap" />;
 
   return (
     <div>
@@ -1909,7 +1909,48 @@ function BuyModal({ user, product, shop, isMember, onClose }) {
   );
 }
 
+function ProductInquiryModal({ product, shop, onClose, onSent }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [sent, setSent] = useState(false);
+  const [place, setPlace] = useState('');
+  const physical = product.product_type === 'physical';
+  const options = [
+    ['availability', 'Is it still available, and is the price the full price?'],
+    ...(physical ? [['delivery', 'Can you deliver or ship to me, and how long does it take?']] : []),
+    ...(!physical ? [['service', 'When are you next available, and what do you need from me?']] : []),
+  ];
+  async function ask(kind) {
+    setBusy(true); setErr('');
+    const { error } = await supabase.rpc('send_product_inquiry', { p_product_id: product.id, p_kind: kind, p_place: kind === 'delivery' ? place.trim() || null : null });
+    setBusy(false);
+    if (error) return setErr(error.message || 'Could not send. Please try again.');
+    setSent(true); onSent && onSent();
+  }
+  return (
+    <FormModal title="Ask the seller" onClose={onClose}>
+      {sent ? (
+        <div>
+          <p className="text-sm text-ivory/85 mb-4">Sent. {shop?.name || 'The seller'} will reply in your Messages. Once they reply you can chat freely.</p>
+          <GoldButton onClick={onClose}>Done</GoldButton>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-sm text-ivory/75">About <b className="text-ivory">{product.name}</b>. Pick a question to send. The price and details are already on this page.</p>
+          {physical && <input value={place} onChange={(e) => setPlace(e.target.value)} maxLength={60} placeholder="Your town or country (for the delivery question)" className={inputCls} />}
+          {options.map(([k, label]) => (
+            <button key={k} type="button" disabled={busy} onClick={() => ask(k)} className="w-full text-left px-4 py-3 min-h-[44px] text-sm rounded-xl border border-ivory/20 text-ivory hover:border-gold disabled:opacity-50">{label}</button>
+          ))}
+          {err && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs">{err}</p>}
+          <p className="text-[11px] text-ivory/50">To keep everyone safe, a first message is one of these questions. Phone numbers and emails cannot be shared.</p>
+        </div>
+      )}
+    </FormModal>
+  );
+}
+
 function ProductModal({ product, shop, user, isMember, onUpgrade, onRequireAuth, onClose, onBuy, onOpenShop }) {
+  const [asking, setAsking] = useState(false);
   const [reviews, setReviews] = useState([]);
   useEffect(() => {
     supabase.from('reviews').select('id,reviewer_name,rating,comment,created_at')
@@ -1967,6 +2008,10 @@ function ProductModal({ product, shop, user, isMember, onUpgrade, onRequireAuth,
       ) : (
         <GoldButton onClick={onBuy}>Buy now</GoldButton>
       )}
+      {product.seller_id !== user?.id && (
+        <div><button type="button" onClick={() => (user ? setAsking(true) : onRequireAuth('signup'))} className="mt-3 min-h-[44px] text-sm text-mint inline-flex items-center gap-1.5 hover:underline"><MessageCircle size={14} /> Ask the seller a question</button></div>
+      )}
+      {asking && <ProductInquiryModal product={product} shop={shop} onClose={() => setAsking(false)} />}
       <div className="mt-4"><ReportLink user={user} onRequireAuth={onRequireAuth} type="product" id={product.id} label="Report this listing" /></div>
     </FormModal>
   );
@@ -2286,9 +2331,9 @@ function MyShopPanel({ user, onClose, onChanged, isPaid, onUpgrade, isApproved, 
                 <p className="text-sm text-ivory/75 mb-3">
                   {status === 'pending' ? 'Your application is being reviewed. You can open a shop once you are approved and have started your membership.'
                     : status === 'declined' ? `Selling is not available because your application was not approved. Questions? Email ${CONTACT_EMAIL}.`
-                    : 'Selling in the Shop is for members of the network, which is for women in business. You can still buy from any shop.'}
+                    : 'Opening a shop is for founding members of the network, which is for women in business. You can still buy from any shop.'}
                 </p>
-                {status === 'unconfirmed' && <GoldButton onClick={() => { onClose(); onApply(); }}>Apply to join</GoldButton>}
+                {status !== 'declined' && <GoldButton onClick={() => { onClose(); onApply(); }}>Start free trial</GoldButton>}
               </div>
             ) : isPaid ? (
               <div>
@@ -2683,7 +2728,7 @@ function ResourcesTab({ user, onRequireAuth, isApproved, status, onApply }) {
   const bar = (
     <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <p className="text-sm text-ivory/60">Free templates, guides and checklists from the community.</p>
-      <GoldButton onClick={() => (!user ? onRequireAuth() : isApproved ? setShowForm(true) : status === 'unconfirmed' ? onApply() : null)}><Plus size={15} /> {!user || isApproved ? 'Share a free resource' : status === 'pending' ? 'Application pending' : status === 'declined' ? 'Not available' : 'Apply to join to share'}</GoldButton>
+      <GoldButton onClick={() => ((user && isApproved) ? setShowForm(true) : onRequireAuth())}><Plus size={15} /> Share a free resource</GoldButton>
     </div>
   );
   const modal = showForm && <ResourceUploadForm user={user} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); setSubmitted(true); }} />;
@@ -2834,7 +2879,7 @@ function OnboardingFlow({ user, status, hasBeta, betaDays, onApplied, onDone }) 
 
 const SECTION_LINKS = [
   ['tab:home', 'Dashboard'], ['tab:directory', 'Directory'], ['tab:events', 'Events'], ['tab:skillswap', 'Skills Swap'],
-  ['tab:shop', 'Shop'], ['tab:resources', 'Resources'], ['tab:benefits', 'Benefits'], ['tab:messages', 'Messages'],
+  ['tab:inquiries', 'Inquiries'], ['tab:shop', 'Shop'], ['tab:resources', 'Resources'], ['tab:benefits', 'Benefits'], ['tab:messages', 'Messages'],
 ];
 
 function timeAgo(iso) {
@@ -3003,6 +3048,7 @@ const NOTIF_TYPES = [
   ['announcements', 'Announcements', 'News and updates from The Boardroom'],
   ['event_reminders', 'Event reminders', 'A reminder 7 days before an event, in your local time'],
   ['benefit_alerts', 'Member deals', 'When a shop starts a member deal you can use'],
+  ['inquiry_alerts', 'Inquiries in my field', 'When a member posts an inquiry that matches your business, and replies to yours'],
 ];
 
 function Toggle({ checked, onChange, label }) {
@@ -3023,14 +3069,14 @@ function NotificationSettings({ user }) {
 
   useEffect(() => {
     supabase.from('notification_settings').select('*').eq('user_id', user.id).maybeSingle()
-      .then(({ data }) => setS(data || { profile_views: true, product_views: true, announcements: true, event_reminders: true, benefit_alerts: true, push_enabled: true, share_views: true }));
+      .then(({ data }) => setS(data || { profile_views: true, product_views: true, announcements: true, event_reminders: true, benefit_alerts: true, inquiry_alerts: true, push_enabled: true, share_views: true }));
     currentPushState().then(setPushState);
   }, [user.id]);
 
   async function save(patch) {
     const next = { ...s, ...patch };
     setS(next);
-    const row = { user_id: user.id, profile_views: next.profile_views, product_views: next.product_views, announcements: next.announcements, event_reminders: next.event_reminders, benefit_alerts: next.benefit_alerts !== false, push_enabled: next.push_enabled, share_views: next.share_views, city: (next.city || '').trim().slice(0, 80) || null, country: next.country || null };
+    const row = { user_id: user.id, profile_views: next.profile_views, product_views: next.product_views, announcements: next.announcements, event_reminders: next.event_reminders, benefit_alerts: next.benefit_alerts !== false, inquiry_alerts: next.inquiry_alerts !== false, push_enabled: next.push_enabled, share_views: next.share_views, city: (next.city || '').trim().slice(0, 80) || null, country: next.country || null };
     const { error } = await supabase.from('notification_settings').upsert(row, { onConflict: 'user_id' });
     if (error) setErr('Could not save that. Please try again.');
   }
@@ -3241,7 +3287,7 @@ function Dashboard({ user, profile, status, isApproved, isPaid, betaActive, beta
   const name = firstNameOf(profile, user);
   const tiles = [
     ['directory', 'Directory', Building2], ['resources', 'Resources', FileText], ['skillswap', 'Skills Swap', Users],
-    ['benefits', 'Benefits', Gift], ['events', 'Events', Calendar], ['shop', 'Shop', ShoppingBag],
+    ['benefits', 'Benefits', Gift], ['events', 'Events', Calendar], ['shop', 'Shop', ShoppingBag], ['inquiries', 'Inquiries', HelpCircle], ['messages', 'Messages', Inbox], ['notifications', 'Alerts', Bell],
   ];
   const weekAgo = Date.now() - 7 * 86400000;
   const recent = (feed || []).filter((f) => new Date(f.at).getTime() >= weekAgo);
@@ -3267,13 +3313,15 @@ function Dashboard({ user, profile, status, isApproved, isPaid, betaActive, beta
       <section>
         <h2 className="font-display text-2xl text-ivory">{user ? `Hello${name ? ` ${name}` : ''}` : 'Welcome'}</h2>
         {!user ? (
-          <div className="mt-2 flex flex-wrap items-center gap-3">
-            <p className="text-sm text-ivory/65">A network supporting women in business.</p>
-            <GoldButton onClick={onRequireAuth}><LogIn size={15} /> Sign in or join</GoldButton>
+          <div className="mt-3 rounded-2xl bg-gold/10 border border-gold/30 p-4">
+            <p className="text-[11px] font-semibold tracking-[0.16em] uppercase text-gold">Become a founding member</p>
+            <p className="text-sm text-ivory/85 mt-1 mb-3">A network for women in business. Browse everything for free. Join to list your business, open a shop, post events, swap skills and ask the network.</p>
+            <GoldButton onClick={() => onRequireAuth('signup')}>Start free trial</GoldButton>
+            <div><button type="button" onClick={() => onRequireAuth('signin')} className="mt-2 min-h-[44px] text-xs text-ivory/70 underline underline-offset-2">Already a member? Sign in</button></div>
           </div>
         ) : (
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ivory/65">
-            {status === 'unconfirmed' && (<><span>You have buyer access.</span><button type="button" onClick={onApply} className="min-h-[44px] text-gold font-semibold underline underline-offset-2">Apply to join</button></>)}
+            {status === 'unconfirmed' && (<><span>You are browsing as a guest.</span><button type="button" onClick={onApply} className="min-h-[44px] text-gold font-semibold underline underline-offset-2">Become a founding member</button></>)}
             {status === 'pending' && <span>Your application is being reviewed.</span>}
             {status === 'declined' && <span>Your application was not approved.</span>}
             {isApproved && betaActive && <span className="inline-flex items-center gap-1.5 text-gold"><Crown size={14} /> Beta member, {betaDaysLeft} {betaDaysLeft === 1 ? 'day' : 'days'} left</span>}
@@ -3663,7 +3711,7 @@ function Drawer({ open, onClose, tab, onGo, user, profile, unread, isAdmin, onAc
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
   const items = [
-    ['home', 'Dashboard', Home], ['directory', 'Directory', Building2], ['events', 'Events', Calendar], ['skillswap', 'Skills Swap', Users],
+    ['home', 'Dashboard', Home], ['directory', 'Directory', Building2], ['events', 'Events', Calendar], ['skillswap', 'Skills Swap', Users], ['inquiries', 'Inquiries', HelpCircle],
     ['shop', 'Shop', ShoppingBag], ['resources', 'Resources', FileText], ['benefits', 'Benefits', Gift],
     ['messages', 'Messages', Inbox], ['notifications', 'Notifications', Bell],
   ];
@@ -3698,7 +3746,7 @@ function Drawer({ open, onClose, tab, onGo, user, profile, unread, isAdmin, onAc
               <button type="button" onClick={onSignOut} className={`${row} text-ivory/85`}><LogOut size={20} strokeWidth={1.7} /> Sign out</button>
             </>
           ) : (
-            <button type="button" onClick={onSignIn} className={`${row} text-gold`}><LogIn size={20} /> Sign in</button>
+            <button type="button" onClick={onSignIn} className={`${row} text-gold`}><LogIn size={20} /> Join or sign in</button>
           )}
           <div className="flex gap-5 px-5 pt-1 text-xs text-ivory/50">
             <button type="button" onClick={() => onLegal('privacy')} className="min-h-[44px] underline underline-offset-2">Privacy Policy</button>
@@ -3712,7 +3760,7 @@ function Drawer({ open, onClose, tab, onGo, user, profile, unread, isAdmin, onAc
 
 /* ---------- Directory listing detail (records a "view") ---------- */
 
-function ListingModal({ biz, user, canMessage, onMessage, onClose }) {
+function ListingModal({ biz, user, isApproved, canMessage, onMessage, onClose }) {
   useEffect(() => {
     if (user && biz.user_id !== user.id) supabase.rpc('record_view', { p_type: 'listing', p_id: biz.id }).then(() => {}, () => {});
   }, [biz.id, biz.user_id, user]);
@@ -3727,7 +3775,7 @@ function ListingModal({ biz, user, canMessage, onMessage, onClose }) {
           <a href={biz.website_url.startsWith('http') ? biz.website_url : `https://${biz.website_url}`} target="_blank" rel="noopener noreferrer" className="min-h-[44px] inline-flex items-center gap-1 text-sm text-mint hover:underline">Website <ExternalLink size={12} /></a>
         )}
         {canMessage && <GoldButton onClick={onMessage}><MessageCircle size={14} /> Message</GoldButton>}
-        {!canMessage && user && biz.user_id !== user.id && <p className="text-xs text-ivory/50">Messaging opens once this member has an active membership and you have joined the network.</p>}
+        {!canMessage && user && biz.user_id !== user.id && <p className="text-xs text-ivory/50">{isApproved ? 'This member is not taking messages right now.' : 'To ask a seller about a product, open the item in the Shop. Founding members can message members directly.'}</p>}
       </div>
     </FormModal>
   );
@@ -3737,11 +3785,297 @@ function ListingModal({ biz, user, canMessage, onMessage, onClose }) {
    Root App
 --------------------------------------------------------- */
 
+/* ---------------------------------------------------------
+   Inquiries: members ask questions or run polls, tagged with keywords.
+   Members whose Directory listing, shop or products match get an alert.
+--------------------------------------------------------- */
+
+function NewInquiryModal({ onClose, onPosted }) {
+  const [kind, setKind] = useState('question');
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [opts, setOpts] = useState(['', '']);
+  const [days, setDays] = useState(14);
+  const [kws, setKws] = useState([]);
+  const [kwInput, setKwInput] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [done, setDone] = useState(null);
+
+  function addKw(raw) {
+    const k = raw.trim().toLowerCase().replace(/[^a-z0-9 &-]/g, '').replace(/\s+/g, ' ');
+    if (k.length < 2) return;
+    setKws((cur) => (cur.includes(k) || cur.length >= 6 ? cur : [...cur, k]));
+    setKwInput('');
+  }
+  function toggleIndustry(label) {
+    const k = label.toLowerCase();
+    setKws((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : cur.length >= 6 ? cur : [...cur, k]));
+  }
+
+  async function submit(e) {
+    e.preventDefault();
+    setErr('');
+    const cleanOpts = opts.map((o) => o.trim()).filter(Boolean);
+    const all = [title, body, kws.join(' '), cleanOpts.join(' ')].join(' ');
+    if (contactDetailsIn(all)) return setErr('For your safety, phone numbers, email addresses and other chat apps cannot be shared here. Members can reply or message you in the app.');
+    if (title.trim().length < 5) return setErr('Please write a title of at least 5 characters.');
+    if (kws.length < 1) return setErr('Add at least one keyword so the right members see it. Tap your industry below.');
+    if (kind === 'poll' && cleanOpts.length < 2) return setErr('A poll needs at least 2 answer options.');
+    setBusy(true);
+    const { data, error } = await supabase.rpc('post_inquiry', { p_kind: kind, p_title: title.trim(), p_body: body.trim() || null, p_keywords: kws, p_options: kind === 'poll' ? cleanOpts : null, p_days: Number(days) });
+    setBusy(false);
+    if (error) return setErr(error.message || 'Could not post. Please try again.');
+    setDone(data?.notified ?? 0);
+    onPosted && onPosted();
+  }
+
+  if (done !== null) {
+    return (
+      <FormModal title="Posted" onClose={onClose}>
+        <p className="text-sm text-ivory/85 mb-4">
+          {done > 0 ? `Your ${kind} is live. We alerted ${done} ${done === 1 ? 'member' : 'members'} whose business matches your keywords.` : `Your ${kind} is live. No members matched your keywords yet, but everyone can find it by browsing.`}
+        </p>
+        <GoldButton onClick={onClose}>Done</GoldButton>
+      </FormModal>
+    );
+  }
+
+  return (
+    <FormModal title="New inquiry" onClose={onClose}>
+      <form onSubmit={submit} className="space-y-3">
+        <div className="flex gap-2">
+          {[['question', 'Question'], ['poll', 'Poll']].map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setKind(k)} className={`px-4 min-h-[44px] text-sm font-medium rounded-full border ${kind === k ? 'bg-gold text-navy border-gold' : 'border-ivory/20 text-ivory/70'}`}>{l}</button>
+          ))}
+        </div>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={140} placeholder={kind === 'poll' ? 'Your poll question' : 'What do you need? e.g. Looking for a bookkeeper in Kingston'} className={inputCls} />
+        <textarea value={body} onChange={(e) => setBody(e.target.value)} maxLength={1500} rows={4} placeholder="More detail (optional)" className={inputCls} />
+        {kind === 'poll' && (
+          <div className="space-y-2">
+            {opts.map((o, i) => (
+              <div key={i} className="flex gap-2">
+                <input value={o} onChange={(e) => setOpts((cur) => cur.map((x, j) => (j === i ? e.target.value : x)))} maxLength={80} placeholder={`Option ${i + 1}`} className={inputCls} />
+                {opts.length > 2 && <button type="button" aria-label="Remove option" onClick={() => setOpts((cur) => cur.filter((_, j) => j !== i))} className="w-11 min-h-[44px] flex items-center justify-center text-ivory/60"><X size={16} /></button>}
+              </div>
+            ))}
+            {opts.length < 6 && <button type="button" onClick={() => setOpts((cur) => [...cur, ''])} className="text-xs text-mint underline min-h-[44px]">Add an option</button>}
+          </div>
+        )}
+        <div>
+          <p className="text-xs text-ivory/70 mb-2">Keywords (up to 6). Members whose business matches get an alert.</p>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {INQUIRY_INDUSTRIES.map((l) => {
+              const on = kws.includes(l.toLowerCase());
+              return <button key={l} type="button" onClick={() => toggleIndustry(l)} className={`px-3 min-h-[36px] text-xs rounded-full border ${on ? 'bg-gold text-navy border-gold' : 'border-ivory/20 text-ivory/70'}`}>{l}</button>;
+            })}
+          </div>
+          <div className="flex gap-2">
+            <input value={kwInput} onChange={(e) => setKwInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addKw(kwInput); } }} maxLength={40} placeholder="Or type your own, then Add" className={inputCls} />
+            <button type="button" onClick={() => addKw(kwInput)} className="px-4 min-h-[44px] text-sm rounded-xl border border-ivory/20 text-ivory/80">Add</button>
+          </div>
+          {kws.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {kws.map((k) => <button key={k} type="button" onClick={() => setKws((c) => c.filter((x) => x !== k))} className="px-3 min-h-[32px] text-xs rounded-full bg-gold/15 text-gold border border-gold/40 inline-flex items-center gap-1">{k} <X size={11} /></button>)}
+            </div>
+          )}
+        </div>
+        <label className="block text-xs text-ivory/70">Open for
+          <select value={days} onChange={(e) => setDays(e.target.value)} className={inputCls + ' mt-1'}>
+            {[[3, '3 days'], [7, '1 week'], [14, '2 weeks'], [30, '1 month']].map(([d, l]) => <option key={d} value={d}>{l}</option>)}
+          </select>
+        </label>
+        <p className="text-[11px] text-ivory/55">Posts go live straight away. No phone numbers, emails or other chat apps, and nothing sexual or illegal. We can remove anything that breaks the rules.</p>
+        {err && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs">{err}</p>}
+        <GoldButton type="submit" disabled={busy}>{busy ? <Loader2 className="animate-spin" size={16} /> : 'Post'}</GoldButton>
+      </form>
+    </FormModal>
+  );
+}
+
+function InquiryThreadModal({ user, item, canMessage, canReply, onRequireAuth, onMessage, onClose, onChanged }) {
+  const [replies, setReplies] = useState(null);
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const load = useCallback(async () => {
+    const { data } = await supabase.rpc('inquiry_replies_for', { p_inquiry_id: item.id });
+    setReplies(data || []);
+  }, [item.id]);
+  useEffect(() => { load(); }, [load]);
+  async function send(e) {
+    e.preventDefault();
+    setErr('');
+    if (!text.trim()) return;
+    if (!canReply) return onRequireAuth();
+    if (contactDetailsIn(text)) return setErr('For your safety, phone numbers, email addresses and other chat apps cannot be shared here. Reply here or message the member in the app.');
+    setBusy(true);
+    const { error } = await supabase.rpc('reply_inquiry', { p_inquiry_id: item.id, p_body: text.trim() });
+    setBusy(false);
+    if (error) return setErr(error.message || 'Could not send your reply.');
+    setText(''); await load(); onChanged && onChanged();
+  }
+  async function removeReply(id) {
+    if (!window.confirm('Delete this reply?')) return;
+    await supabase.rpc('remove_inquiry_reply', { p_reply_id: id });
+    await load(); onChanged && onChanged();
+  }
+  return (
+    <FormModal title={item.title} onClose={onClose}>
+      {item.body && <p className="text-sm text-ivory/80 whitespace-pre-line mb-3">{item.body}</p>}
+      <p className="text-xs text-ivory/55 mb-4">{item.author_name}{item.business ? `, ${item.business}` : ''} · {timeAgo(item.created_at)}</p>
+      {replies === null ? <Spinner /> : replies.length === 0 ? (
+        <p className="text-sm text-ivory/60 mb-4">No replies yet. Be the first to help.</p>
+      ) : (
+        <div className="space-y-2 mb-4">
+          {replies.map((r) => (
+            <div key={r.id} className="rounded-xl bg-navy/50 border border-ivory/10 px-3 py-2">
+              <p className="text-sm text-ivory/90 whitespace-pre-line">{r.body}</p>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-[11px] text-ivory/50">{r.author_name}{r.business ? `, ${r.business}` : ''} · {timeAgo(r.created_at)}</p>
+                <span className="flex items-center">
+                  {r.author_id === user.id && <button type="button" onClick={() => removeReply(r.id)} aria-label="Delete reply" className="text-ivory/50 min-h-[44px] w-9 flex items-center justify-center"><Trash2 size={13} /></button>}
+                  <ReportLink user={user} type="member" id={r.author_id} />
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {item.closed ? <p className="text-xs text-ivory/60">This inquiry has closed.</p> : (
+        <form onSubmit={send} className="space-y-2">
+          <textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={800} rows={3} placeholder="Write a reply" className={inputCls} />
+          {err && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs">{err}</p>}
+          <GoldButton type="submit" disabled={busy || !text.trim()}>{busy ? <Loader2 className="animate-spin" size={16} /> : 'Reply'}</GoldButton>
+        </form>
+      )}
+      {canMessage && item.author_id !== user.id && (
+        <button type="button" onClick={onMessage} className="mt-3 text-xs uppercase tracking-wide text-mint hover:underline min-h-[44px] inline-flex items-center gap-1"><MessageCircle size={13} /> Message {item.author_name} privately</button>
+      )}
+    </FormModal>
+  );
+}
+
+function InquiriesTab({ user, onRequireAuth, isApproved, status, onApply }) {
+  const [items, setItems] = useState(null);
+  const [kind, setKind] = useState('all'); // all | question | poll | mine
+  const [q, setQ] = useState('');
+  const [showNew, setShowNew] = useState(false);
+  const [open, setOpen] = useState(null);
+  const [thread, setThread] = useState(null);
+  const [messageable, setMessageable] = useState(new Set());
+  const [err, setErr] = useState('');
+
+  const load = useCallback(async () => {
+    if (!user) { setItems([]); return; }
+    const { data } = await supabase.rpc('inquiry_feed', { p_kind: kind === 'question' || kind === 'poll' ? kind : null, p_q: q.trim() || null, p_mine: kind === 'mine', p_limit: 60 });
+    const list = data || [];
+    setItems(list);
+    const ids = [...new Set(list.map((i) => i.author_id).filter((id) => id !== user.id))];
+    if (ids.length) {
+      const { data: mm } = await supabase.rpc('messageable_ids', { p_ids: ids });
+      setMessageable(new Set(mm || []));
+    }
+  }, [user, kind, q]);
+  useEffect(() => { const t = setTimeout(load, q ? 300 : 0); return () => clearTimeout(t); }, [load, q]);
+
+  async function vote(item, optionId) {
+    setErr('');
+    if (!isApproved) return onRequireAuth();
+    const { error } = await supabase.rpc('vote_inquiry', { p_inquiry_id: item.id, p_option_id: optionId });
+    if (error) setErr(error.message);
+    await load();
+  }
+  async function removeItem(item) {
+    if (!window.confirm('Delete this inquiry?')) return;
+    await supabase.rpc('remove_inquiry', { p_inquiry_id: item.id });
+    await load();
+  }
+
+  if (!user) return (
+    <div className="text-center py-10">
+      <EmptyState icon={HelpCircle} title="Inquiries" body="Create an account to browse questions and polls from other members, and to ask your own." />
+      <GoldButton onClick={() => onRequireAuth('signup')}>Start free trial</GoldButton>
+    </div>
+  );
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <p className="text-sm text-ivory/70">Ask the network a question or run a poll. Members whose business matches your keywords get an alert.</p>
+      </div>
+      <div className="mb-4"><GoldButton onClick={() => (isApproved ? setShowNew(true) : onRequireAuth())}><Plus size={14} className="inline mr-1" /> New inquiry</GoldButton></div>
+      <div className="relative mb-3">
+        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ivory/40" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by keyword or topic" className={inputCls + ' pl-10'} />
+      </div>
+      <div className="flex flex-wrap gap-2 mb-5">
+        {[['all', 'All'], ['question', 'Questions'], ['poll', 'Polls'], ['mine', 'Mine']].map(([k, l]) => (
+          <button key={k} onClick={() => setKind(k)} className={`px-4 min-h-[44px] text-sm font-medium rounded-full border ${kind === k ? 'bg-gold text-navy border-gold' : 'border-ivory/20 text-ivory/70'}`}>{l}</button>
+        ))}
+      </div>
+      {err && <p className="text-[#F2B8C2] bg-wine/60 border border-wine rounded-xl px-3 py-2 text-xs mb-3">{err}</p>}
+      {items === null ? <Spinner /> : items.length === 0 ? (
+        <EmptyState icon={HelpCircle} title="Nothing here yet" body={q ? 'No inquiries match that search.' : 'Be the first to ask the network something.'} />
+      ) : (
+        <div className="space-y-3">
+          {items.map((it) => (
+            <Card key={it.id} className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[11px] uppercase tracking-wide text-gold mb-1">{it.kind === 'poll' ? 'Poll' : 'Question'}{it.closed ? ' · Closed' : ''}</p>
+                  <p className="font-medium text-ivory text-[15px]">{it.title}</p>
+                  {it.body && <p className="text-sm text-ivory/70 mt-1 whitespace-pre-line line-clamp-3">{it.body}</p>}
+                </div>
+                {it.author_id === user.id && <button type="button" onClick={() => removeItem(it)} aria-label="Delete inquiry" className="w-11 h-11 -mt-2 -mr-2 flex items-center justify-center text-ivory/50"><Trash2 size={15} /></button>}
+              </div>
+              {it.kind === 'poll' && (
+                <div className="mt-3 space-y-2">
+                  {it.options.map((o) => {
+                    const pct = it.show_results && it.total_votes > 0 ? Math.round(((o.votes || 0) / it.total_votes) * 100) : 0;
+                    const mine = it.my_vote === o.id;
+                    if (it.show_results || it.closed) {
+                      return (
+                        <div key={o.id} className={`relative rounded-xl border overflow-hidden ${mine ? 'border-gold' : 'border-ivory/15'}`}>
+                          <div className="absolute inset-y-0 left-0 bg-gold/20" style={{ width: `${pct}%` }} />
+                          <div className="relative flex justify-between px-3 py-2.5 text-sm text-ivory"><span>{o.label}{mine ? ' (your vote)' : ''}</span><span>{pct}%</span></div>
+                        </div>
+                      );
+                    }
+                    return <button key={o.id} type="button" onClick={() => vote(it, o.id)} className="w-full text-left px-3 py-2.5 min-h-[44px] text-sm rounded-xl border border-ivory/20 text-ivory hover:border-gold">{o.label}</button>;
+                  })}
+                  {it.show_results && <p className="text-[11px] text-ivory/50">{it.total_votes} {it.total_votes === 1 ? 'vote' : 'votes'}</p>}
+                </div>
+              )}
+              {it.keywords?.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-3">
+                  {it.keywords.map((k) => <button key={k} type="button" onClick={() => setQ(k)} className="px-2.5 py-1 text-[11px] rounded-full bg-ivory/10 text-ivory/70">{k}</button>)}
+                </div>
+              )}
+              <div className="flex items-center justify-between mt-3">
+                <p className="text-xs text-ivory/55 truncate">{it.author_name}{it.business ? `, ${it.business}` : ''} · {timeAgo(it.created_at)}</p>
+                <span className="flex items-center gap-1 flex-shrink-0">
+                  <button type="button" onClick={() => setOpen(it)} className="min-h-[44px] px-2 text-xs uppercase tracking-wide text-mint hover:underline inline-flex items-center gap-1"><MessageCircle size={13} /> {it.reply_count > 0 ? `${it.reply_count} ${it.reply_count === 1 ? 'reply' : 'replies'}` : 'Reply'}</button>
+                  <ReportLink user={user} onRequireAuth={onRequireAuth} type="member" id={it.author_id} />
+                </span>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+      {showNew && <NewInquiryModal onClose={() => setShowNew(false)} onPosted={load} />}
+      {open && <InquiryThreadModal user={user} item={open} canReply={isApproved} onRequireAuth={onRequireAuth} canMessage={messageable.has(open.author_id)} onMessage={() => { setThread({ id: open.author_id, name: open.author_name }); setOpen(null); }} onClose={() => setOpen(null)} onChanged={load} />}
+      {thread && <MessageThreadModal user={user} otherUserId={thread.id} otherName={thread.name} onClose={() => setThread(null)} />}
+    </div>
+  );
+}
+
 const TABS = [
   { key: 'home', label: 'Dashboard', short: 'Home', icon: Home },
   { key: 'directory', label: 'Directory', short: 'Directory', icon: Building2, Comp: DirectoryTab },
   { key: 'events', label: 'Events', short: 'Events', icon: Calendar, Comp: EventsTab },
   { key: 'skillswap', label: 'Skills Swap', short: 'Skills', icon: Users, Comp: SkillswapTab },
+  { key: 'inquiries', label: 'Inquiries', short: 'Inquiries', icon: HelpCircle, Comp: InquiriesTab },
   { key: 'shop', label: 'Shop', short: 'Shop', icon: ShoppingBag, Comp: ShopTab },
   { key: 'resources', label: 'Resources', short: 'Resources', icon: FileText, Comp: ResourcesTab },
   { key: 'benefits', label: 'Benefits', short: 'Benefits', icon: Gift, Comp: BenefitsTab },
@@ -3750,14 +4084,14 @@ const TABS = [
   { key: 'admin', label: 'Admin', short: 'Admin', icon: ShieldCheck },
 ];
 const TAB_KEYS = TABS.map((t) => t.key);
-const DESKTOP_NAV = ['home', 'directory', 'events', 'skillswap', 'shop', 'resources', 'benefits', 'messages'];
+const DESKTOP_NAV = ['home', 'directory', 'events', 'skillswap', 'inquiries', 'shop', 'resources', 'benefits', 'messages'];
 const BOTTOM_NAV = ['home', 'events', 'shop', 'resources', 'messages'];
 
 export default function App() {
   const [user, setUser] = useState(undefined); // undefined = loading, null = signed out
   const [profile, setProfile] = useState(null);
   const [tab, setTab] = useState('home');
-  const [showAuth, setShowAuth] = useState(false);
+  const [showAuth, setShowAuth] = useState(false); // false | 'signup' | 'signin'
   const [upgrading, setUpgrading] = useState(false);
   const [membershipNotice, setMembershipNotice] = useState(null); // 'success' | 'cancelled' | null
   const [orderNotice, setOrderNotice] = useState(null); // 'success' | 'cancelled' | null
@@ -3866,12 +4200,18 @@ export default function App() {
   const isApproved = status === 'approved';
   const isAdmin = !!profile?.is_admin;
   function handleApply() {
-    if (!user) return setShowAuth(true);
+    if (!user) return setShowAuth('signup');
+    setFlowOpen(true);
+  }
+  // Used by every "add something" button. Signed out: the founding member sign-up pop-up. Signed in but not a member yet: the join steps.
+  function requireMember(mode) {
+    if (!user) return setShowAuth(mode === 'signin' ? 'signin' : 'signup');
+    if (isApproved) return;
     setFlowOpen(true);
   }
 
   async function handleUpgradeClick() {
-    if (!user) return setShowAuth(true);
+    if (!user) return setShowAuth('signup');
     if (!isApproved) return setFlowOpen(true);
     setUpgrading(true);
     const err = await startMembershipCheckout();
@@ -3977,7 +4317,7 @@ export default function App() {
   const active = TABS.find((t) => t.key === (tab === 'admin' && !isAdmin ? 'home' : tab)) || TABS[0];
   const ActiveComp = active.Comp;
   const onHome = active.key === 'home';
-  const common = { user, onRequireAuth: () => setShowAuth(true), openPanel: connectReturn, isPaid, onUpgrade: handleUpgradeClick, isApproved, status, onApply: handleApply, isAdmin, onGo: goTab };
+  const common = { user, onRequireAuth: requireMember, openPanel: connectReturn, isPaid, onUpgrade: handleUpgradeClick, isApproved, status, onApply: handleApply, isAdmin, onGo: goTab };
   const dismissPushCard = () => { try { localStorage.setItem(`tbja_pushno_${user.id}`, '1'); } catch { /* ignore */ } setPushCard(false); };
 
   const statusChips = (
@@ -4066,10 +4406,10 @@ export default function App() {
             )}
             {user === null && (
               <button
-                onClick={() => setShowAuth(true)}
-                className="flex items-center gap-1.5 text-sm font-medium text-ivory border border-ivory/20 rounded-full px-4 min-h-[40px] hover:border-gold hover:text-gold"
+                onClick={() => setShowAuth('signup')}
+                className="flex items-center gap-1.5 text-sm font-medium text-ivory border border-gold/60 rounded-full px-4 min-h-[40px] hover:border-gold hover:text-gold"
               >
-                <LogIn size={15} /> Sign in
+                <Crown size={15} /> Join
               </button>
             )}
           </div>
@@ -4142,11 +4482,11 @@ export default function App() {
           {active.key === 'home' ? (
             <Dashboard
               user={user} profile={profile} status={status} isApproved={isApproved} isPaid={isPaid} betaActive={betaActive} betaDaysLeft={betaDaysLeft}
-              onGo={goTab} onOpenLink={openLink} onRequireAuth={() => setShowAuth(true)} onApply={handleApply} onUpgrade={handleUpgradeClick}
+              onGo={goTab} onOpenLink={openLink} onRequireAuth={requireMember} onApply={handleApply} onUpgrade={handleUpgradeClick}
               showPushCard={pushCard} onAllowPush={() => setPushPrompt(true)} onDismissPushCard={dismissPushCard}
             />
           ) : active.key === 'notifications' ? (
-            <NotificationsPage user={user} tick={notifTick} onOpenLink={openLink} onChanged={refreshUnread} onRequireAuth={() => setShowAuth(true)} />
+            <NotificationsPage user={user} tick={notifTick} onOpenLink={openLink} onChanged={refreshUnread} onRequireAuth={requireMember} />
           ) : active.key === 'admin' ? (
             <AdminTab />
           ) : (
@@ -4187,12 +4527,12 @@ export default function App() {
         open={drawerOpen} onClose={() => setDrawerOpen(false)} tab={tab} onGo={goTab} user={user} profile={profile} unread={unread} isAdmin={isAdmin}
         onAccount={() => { setDrawerOpen(false); setShowAccount(true); }}
         onSignOut={() => { setDrawerOpen(false); supabase.auth.signOut(); }}
-        onSignIn={() => { setDrawerOpen(false); setShowAuth(true); }}
+        onSignIn={() => { setDrawerOpen(false); setShowAuth('signup'); }}
         onLegal={(k) => { setDrawerOpen(false); setRootLegal(k); }}
       />
 
       {showAuth && (
-        <AuthModal onClose={() => setShowAuth(false)} onAuthed={() => {}} />
+        <AuthModal startMode={showAuth === 'signin' ? 'signin' : 'signup'} onClose={() => setShowAuth(false)} onAuthed={() => {}} />
       )}
       {recovery && user && <SetPasswordModal onDone={() => setRecovery(false)} />}
       {flowOpen && user && profile && <OnboardingFlow user={user} status={status} hasBeta={!!profile.trial_ends_at} betaDays={betaDaysLeft} onApplied={loadProfile} onDone={finishOnboarding} />}
