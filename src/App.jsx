@@ -94,6 +94,49 @@ function EmptyState({ icon: Icon, title, body }) {
   );
 }
 
+// iPhones often ignore the HTML download attribute, especially in the home-screen app. So fetch the file ourselves and hand it to the
+// phone's share sheet ("Save to Files"), or save it directly where the share sheet is not available.
+function ResourceDownload({ r }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const url = String(r.file_url || '');
+  const ext = (url.split('?')[0].match(/\.([a-z0-9]{2,5})$/i) || [])[1] || '';
+  const base = String(r.title || 'resource').replace(/[^a-zA-Z0-9 _-]/g, '').trim().replace(/\s+/g, '-').slice(0, 60) || 'resource';
+  const name = ext ? `${base}.${ext.toLowerCase()}` : base;
+  const safe = /^(https?:\/\/|\/)/i.test(url);
+  if (!safe) return null;
+
+  async function get() {
+    setBusy(true); setErr('');
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('bad status');
+      const blob = await res.blob();
+      const file = new File([blob], name, { type: blob.type || 'application/octet-stream' });
+      if (navigator.canShare && navigator.canShare({ files: [file] }) && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        try { await navigator.share({ files: [file], title: r.title || name }); setBusy(false); return; }
+        catch (e) { if (e && e.name === 'AbortError') { setBusy(false); return; } /* otherwise fall through to a direct save */ }
+      }
+      const obj = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = obj; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(obj), 60000);
+    } catch {
+      // Last resort: let the browser open the file itself.
+      window.location.href = url;
+    }
+    setBusy(false);
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+      <GoldButton onClick={get} disabled={busy}>{busy ? <Loader2 className="animate-spin" size={14} /> : <Download size={14} />} Download</GoldButton>
+      {ext.toLowerCase() !== 'html' && <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-mint hover:underline min-h-[44px] inline-flex items-center">Open instead</a>}
+      {err && <span className="text-xs text-[#F2B8C2]">{err}</span>}
+    </div>
+  );
+}
+
 function Spinner() {
   return (
     <div className="flex justify-center py-16">
@@ -110,14 +153,14 @@ function Card({ children, className = '' }) {
   );
 }
 
-function GoldButton({ children, onClick, href, disabled, type = 'button', download }) {
+function GoldButton({ children, onClick, href, disabled, type = 'button', download, sameTab = false }) {
   const cls = 'inline-flex items-center justify-center gap-2 px-5 py-2.5 min-h-[44px] rounded-full btn-gold text-navy text-sm font-semibold hover:brightness-110 active:scale-[0.98] transition disabled:opacity-40 disabled:cursor-not-allowed';
   // Only real web links are allowed. Blocks javascript: and other unsafe schemes in member-submitted links.
   const safeHref = href && /^(https?:\/\/|\/|#)/i.test(String(href).trim()) ? String(href).trim() : null;
   if (href && !safeHref) return null;
   if (safeHref) {
     return (
-      <a href={safeHref} target="_blank" rel="noopener noreferrer" className={cls} download={download || undefined}>
+      <a href={safeHref} {...(sameTab ? {} : { target: '_blank', rel: 'noopener noreferrer' })} className={cls} download={download || undefined}>
         {children}
       </a>
     );
@@ -2775,9 +2818,7 @@ function ResourcesTab({ user, onRequireAuth, isApproved, status, onApply }) {
               {r.uploaded_by_name && <p className="text-xs text-ivory/50 mb-2">Shared by {r.uploaded_by_name}</p>}
               {r.description && <p className="text-sm text-ivory/75 mb-4 flex-grow">{r.description}</p>}
               {r.file_url && (
-                <GoldButton href={r.file_url} download={r.file_url.split('/').pop()}>
-                  <Download size={14} /> Download
-                </GoldButton>
+                <ResourceDownload r={r} />
               )}
             </Card>
           ))}
